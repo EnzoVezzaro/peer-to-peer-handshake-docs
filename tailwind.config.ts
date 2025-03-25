@@ -102,6 +102,20 @@ export default {
 					'0%, 100%': { opacity: '1' },
 					'50%': { opacity: '0.5' }
 				},
+				'pulse-shadow': {
+					'0%': { 
+						boxShadow: '0 0 0 0 rgba(59, 130, 246, 0.7)',
+						transform: 'scale(1)'
+					},
+					'70%': { 
+						boxShadow: '0 0 0 10px rgba(59, 130, 246, 0)',
+						transform: 'scale(1.05)'
+					},
+					'100%': { 
+						boxShadow: '0 0 0 0 rgba(59, 130, 246, 0)',
+						transform: 'scale(1)'
+					}
+				},
 				'float': {
 					'0%, 100%': { transform: 'translateY(0)' },
 					'50%': { transform: 'translateY(-10px)' }
@@ -116,6 +130,7 @@ export default {
 				'scale-out': 'scale-out 0.2s ease-out',
 				'slide-in': 'slide-in 0.5s ease-out',
 				'pulse-light': 'pulse-light 2s ease-in-out infinite',
+				'pulse-shadow': 'pulse-shadow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
 				'float': 'float 6s ease-in-out infinite'
 			}
 		}

@@ -7,7 +7,7 @@ const Header: React.FC = () => {
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="relative w-10 h-10 flex items-center justify-center">
-            <div className="absolute w-8 h-8 bg-primary/30 rounded-lg animate-pulse-light"></div>
+            <div className="absolute w-8 h-8 bg-primary/30 rounded-lg animate-pulse-shadow"></div>
             <div className="absolute w-4 h-4 bg-primary rounded-md rotate-45"></div>
           </div>
           <h1 className="text-2xl font-medium tracking-tight">HandShare</h1>
