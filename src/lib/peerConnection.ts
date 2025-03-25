@@ -51,10 +51,17 @@ export const initiatePeerConnection = (
   peer.on('signal', data => {
     console.log('SIGNAL', JSON.stringify(data))
     onData(JSON.stringify(data));
+    if (isInitiator) {
+      onData(JSON.stringify(data));
+    }
   });
 
   if (!isInitiator && sdpOffer) {
-    peer.signal(sdpOffer);
+    try {
+      peer.signal(JSON.parse(sdpOffer));
+    } catch (error) {
+      console.error("Error signaling with SDP offer:", error);
+    }
   }
 
   peer.on('connect', () => {

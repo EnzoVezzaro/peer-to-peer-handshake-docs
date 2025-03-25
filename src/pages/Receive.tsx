@@ -38,8 +38,13 @@ const Receive = () => {
     try {
       const url = new URL(window.location.href);
       const params = new URLSearchParams(url.search);
-      const offer = params.get('sdpOffer');
+      let offer = params.get('sdpOffer');
       if (offer) {
+        try {
+          offer = decodeURIComponent(offer);
+        } catch (e) {
+          console.error("Error decoding SDP offer:", e);
+        }
         setSdpOffer(offer);
       }
     } catch (error) {
@@ -75,6 +80,7 @@ const Receive = () => {
 
     peerConnection.on('signal', data => {
       setSdpAnswer(JSON.stringify(data));
+      peerConnection.signal(data);
     })
 
     peerConnection.onData = (data) => {
@@ -82,11 +88,11 @@ const Receive = () => {
     };
 
     // Connect to the sender
-    peerConnection.signal(sdpOffer);
+    //peerConnection.signal(sdpOffer);
 
     // Cleanup function
     return () => {
-      peerConnection.disconnect();
+      peerConnection.destroy();
     };
   }, [roomId, navigate, sdpOffer]);
 
@@ -149,7 +155,7 @@ const Receive = () => {
     toast.info('File transfer declined');
   };
 
-  // Reset and go back home
+  // Reset the state
   const handleReset = () => {
     navigate('/');
   };
