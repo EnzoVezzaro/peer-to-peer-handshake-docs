@@ -6,6 +6,7 @@ import ShareLink from '../components/ShareLink';
 import ConnectionStatus, { ConnectionState } from '../components/ConnectionStatus';
 import TransferProgress from '../components/TransferProgress';
 import FilePreview from '../components/FilePreview';
+import LinkInput from '../components/LinkInput';
 import { createSharingLink, simulateFileTransfer } from '../lib/fileTransfer';
 import { generateRoomId, initiatePeerConnection } from '../lib/peerConnection';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ const Index = () => {
     transferred: number;
     total: number;
   } | null>(null);
+  const [peerConnected, setPeerConnected] = useState<boolean>(false);
 
   // Handle file selection
   const handleFileSelect = (selectedFile: File) => {
@@ -31,69 +33,23 @@ const Index = () => {
     const link = createSharingLink(roomId);
     setSharingLink(link);
     
-    // In a real implementation, we would initiate WebRTC signaling here
-    // For the demo, we'll simulate a connection after a delay
-
     // Initialize peer connection
     const peerConnection = initiatePeerConnection(
       (state) => setConnectionState(state as ConnectionState),
       (data) => console.log('Received data:', data),
       (name) => {
         setPeerName(name);
+        setPeerConnected(true);
         toast.success(`${name} connected! Ready to transfer.`);
       },
       (fileInfo) => {
-        setShowFilePreview(true);
+        // As the sender, we don't show file preview - only receivers do
+        // This is to fix issue #3
       }
     );
 
-    setTimeout(() => {
-      peerConnection.connect();
-    }, 3000);
-  };
-
-  // Handle file transfer acceptance
-  const handleAcceptTransfer = () => {
-    setShowFilePreview(false);
-    
-    if (file) {
-      simulateFileTransfer(
-        file,
-        (progress, transferred, total, speed, remaining) => {
-          setTransferProgress(progress);
-          setTransferStats({
-            speed,
-            remaining,
-            transferred,
-            total
-          });
-        },
-        () => {
-          setConnectionState('completed');
-          toast.success('File transfer completed successfully!');
-        }
-      );
-    }
-  };
-
-  // Handle file transfer decline
-  const handleDeclineTransfer = () => {
-    setShowFilePreview(false);
-    setConnectionState('connected');
-    toast.info('File transfer declined');
-  };
-
-  // Simulate requesting file transfer
-  const handleRequestTransfer = () => {
-    if (file && connectionState === 'connected') {
-      // In a real implementation, this would send a file transfer request to the peer
-      setConnectionState('waiting');
-      
-      // Simulate the recipient receiving the request and showing the preview
-      setTimeout(() => {
-        setShowFilePreview(true);
-      }, 1500);
-    }
+    // Update connection state to waiting for peer
+    setConnectionState('connecting');
   };
 
   // Reset the state
@@ -105,6 +61,7 @@ const Index = () => {
     setTransferStats(null);
     setPeerName('');
     setShowFilePreview(false);
+    setPeerConnected(false);
   };
 
   return (
@@ -123,7 +80,13 @@ const Index = () => {
         </div>
         
         {!file && (
-          <FileUpload onFileSelect={handleFileSelect} />
+          <>
+            <FileUpload onFileSelect={handleFileSelect} />
+            <div className="w-full text-center my-4">
+              <span className="text-muted-foreground px-4">or</span>
+            </div>
+            <LinkInput />
+          </>
         )}
         
         {file && sharingLink && (
@@ -136,15 +99,16 @@ const Index = () => {
             {/* Show connection status */}
             <ConnectionStatus 
               state={connectionState} 
-              peerName={peerName}
+              peerName={peerConnected ? peerName : ''}
+              isPeerConnected={peerConnected}
             />
             
-            {/* Show file preview for confirming transfer */}
+            {/* Show file preview for confirming transfer (Only for receivers, not senders) */}
             {showFilePreview && (
               <FilePreview 
                 file={file}
-                onAccept={handleAcceptTransfer}
-                onDecline={handleDeclineTransfer}
+                onAccept={() => {}}
+                onDecline={() => {}}
               />
             )}
             
@@ -160,10 +124,35 @@ const Index = () => {
             )}
             
             {/* Show manual transfer button when connected but not transferring/waiting */}
-            {connectionState === 'connected' && (
+            {connectionState === 'connected' && peerConnected && (
               <div className="w-full max-w-3xl mx-auto text-center mt-4">
                 <button 
-                  onClick={handleRequestTransfer}
+                  onClick={() => {
+                    // In a real implementation, this would send a file transfer request to the peer
+                    setConnectionState('waiting');
+                    
+                    // Simulate file transfer after a delay (receiver will see file preview)
+                    setTimeout(() => {
+                      if (file) {
+                        simulateFileTransfer(
+                          file,
+                          (progress, transferred, total, speed, remaining) => {
+                            setTransferProgress(progress);
+                            setTransferStats({
+                              speed,
+                              remaining,
+                              transferred,
+                              total
+                            });
+                          },
+                          () => {
+                            setConnectionState('completed');
+                            toast.success('File transfer completed successfully!');
+                          }
+                        );
+                      }
+                    }, 1500);
+                  }}
                   className="btn-primary mx-auto"
                 >
                   Request File Transfer
@@ -193,7 +182,7 @@ const Index = () => {
                   </div>
                   <h3 className="text-xl font-medium mb-2">Transfer Complete!</h3>
                   <p className="text-muted-foreground mb-4">
-                    Your file "{file.name}" was successfully transferred.
+                    Your file "{file?.name}" was successfully transferred.
                   </p>
                   <button 
                     onClick={handleReset}

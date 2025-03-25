@@ -6,9 +6,10 @@ export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'wai
 interface ConnectionStatusProps {
   state: ConnectionState;
   peerName?: string;
+  isPeerConnected?: boolean;
 }
 
-const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, peerName }) => {
+const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, peerName, isPeerConnected = false }) => {
   const getStatusDetails = () => {
     switch (state) {
       case 'disconnected':
@@ -20,10 +21,17 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, peerName }) 
       case 'connecting':
         return {
           color: 'bg-yellow-400',
-          text: 'Connecting',
-          description: 'Establishing connection...'
+          text: 'Waiting for Peer',
+          description: 'Share the link with someone to establish connection...'
         };
       case 'connected':
+        if (!isPeerConnected) {
+          return {
+            color: 'bg-yellow-400',
+            text: 'Waiting for Peer',
+            description: 'Share the link with someone to establish connection...'
+          };
+        }
         return {
           color: 'bg-green-500',
           text: 'Connected',

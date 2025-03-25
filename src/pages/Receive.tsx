@@ -23,6 +23,7 @@ const Receive = () => {
     transferred: number;
     total: number;
   } | null>(null);
+  const [peerConnected, setPeerConnected] = useState<boolean>(false);
 
   useEffect(() => {
     if (!roomId) {
@@ -39,9 +40,11 @@ const Receive = () => {
       (data) => console.log('Received data:', data),
       (name) => {
         setPeerName(name);
+        setPeerConnected(true);
         toast.success(`Connected to ${name}! Waiting for file...`);
       },
       (fileInfo) => {
+        // Only receivers should show the file preview and confirm
         setIncomingFile(fileInfo);
         setShowFilePreview(true);
       }
@@ -127,11 +130,12 @@ const Receive = () => {
         <div className="w-full space-y-6">
           {/* Show connection status */}
           <ConnectionStatus 
-            state={connectionState} 
-            peerName={peerName}
+            state={connectionState}
+            peerName={peerConnected ? peerName : ''}
+            isPeerConnected={peerConnected}
           />
           
-          {/* Show file preview for confirming transfer */}
+          {/* Show file preview for confirming transfer - Only shown to receivers */}
           {showFilePreview && incomingFile && (
             <FilePreview 
               file={incomingFile}
