@@ -119,7 +119,8 @@ export const simulateFileTransfer = (
     speed: number, 
     timeRemaining: number
   ) => void,
-  onComplete: () => void
+  onComplete: () => void,
+  onFileRequest: (file: File) => void
 ): { cancel: () => void } => {
   const totalSize = file.size;
   let transferred = 0;
@@ -161,7 +162,10 @@ export const simulateFileTransfer = (
     
     if (transferred >= totalSize) {
       clearInterval(transferInterval);
-      setTimeout(onComplete, 500);
+      setTimeout(() => {
+        onComplete();
+        onFileRequest(file);
+      }, 500);
     }
   }, 200); // Update every 200ms
   

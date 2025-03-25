@@ -18,24 +18,17 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, peerName, is
           text: 'Disconnected',
           description: 'Waiting for connection...'
         };
-      case 'connecting':
-        return {
-          color: 'bg-yellow-400',
-          text: 'Waiting for Peer',
-          description: 'Share the link with someone to establish connection...'
-        };
       case 'connected':
-        if (!isPeerConnected) {
-          return {
-            color: 'bg-yellow-400',
-            text: 'Waiting for Peer',
-            description: 'Share the link with someone to establish connection...'
-          };
-        }
         return {
           color: 'bg-green-500',
           text: 'Connected',
-          description: `Connected to ${peerName || 'peer'}`
+          description: isPeerConnected ? `Connected to ${peerName || 'peer'}! Waiting for file...` : `Connected to ${peerName || 'peer'}`
+        };
+      case 'waiting':
+        return {
+          color: 'bg-blue-400',
+          text: 'Waiting for Confirmation',
+          description: 'Waiting for recipient to accept the file transfer...'
         };
       case 'waiting':
         return {

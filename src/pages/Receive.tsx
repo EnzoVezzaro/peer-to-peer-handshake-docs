@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
@@ -24,6 +23,8 @@ const Receive = () => {
     total: number;
   } | null>(null);
   const [peerConnected, setPeerConnected] = useState<boolean>(false);
+  const [sdpAnswer, setSdpAnswer] = useState<string>('');
+  const [sdpOffer, setSdpOffer] = useState<string>('');
 
   useEffect(() => {
     if (!roomId) {
@@ -33,31 +34,61 @@ const Receive = () => {
     }
 
     console.log('Connecting to room:', roomId);
+
+    try {
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams(url.search);
+      const offer = params.get('sdpOffer');
+      if (offer) {
+        setSdpOffer(offer);
+      }
+    } catch (error) {
+      console.error('Error parsing URL:', error);
+    }
     
     // Initialize peer connection as the receiver
     const peerConnection = initiatePeerConnection(
       (state) => setConnectionState(state as ConnectionState),
-      (data) => console.log('Received data:', data),
+      (data) => {
+        console.log('Received data:', data);
+        toast.success(data);
+      },
       (name) => {
         setPeerName(name);
         setPeerConnected(true);
-        toast.success(`Connected to ${name}! Waiting for file...`);
+        setConnectionState('waiting');
+        setShowFilePreview(true);
+        toast.success(`${name} connected! Waiting for file...`);
       },
       (fileInfo) => {
+        console.log('this file: ', fileInfo);
+        
         // Only receivers should show the file preview and confirm
         setIncomingFile(fileInfo);
         setShowFilePreview(true);
-      }
+      },
+      () => {},
+      false,
+      roomId,
+      sdpOffer
     );
 
+    peerConnection.on('signal', data => {
+      setSdpAnswer(JSON.stringify(data));
+    })
+
+    peerConnection.onData = (data) => {
+      console.log('Received data:', data);
+    };
+
     // Connect to the sender
-    peerConnection.connect();
+    peerConnection.signal(sdpOffer);
 
     // Cleanup function
     return () => {
       peerConnection.disconnect();
     };
-  }, [roomId, navigate]);
+  }, [roomId, navigate, sdpOffer]);
 
   // Handle file transfer acceptance
   const handleAcceptTransfer = () => {
@@ -65,23 +96,31 @@ const Receive = () => {
     
     setShowFilePreview(false);
     setConnectionState('transferring');
-    
+
+    // Create a download link for the file
+    const url = URL.createObjectURL(incomingFile);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = incomingFile.name;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+
     // Simulate file transfer with progress updates
     let progress = 0;
     const totalSize = incomingFile.size;
     let transferred = 0;
     const startTime = Date.now();
-    
+
     const transferInterval = setInterval(() => {
       // Simulate transfer of chunks
       const chunkSize = Math.min(512 * 1024, totalSize - transferred); // 512KB chunks
       transferred += chunkSize;
-      
+
       const elapsedSeconds = (Date.now() - startTime) / 1000;
       const speed = transferred / elapsedSeconds;
       progress = (transferred / totalSize) * 100;
       const remaining = (totalSize - transferred) / speed;
-      
+
       setTransferProgress(progress);
       setTransferStats({
         speed,
@@ -89,13 +128,16 @@ const Receive = () => {
         transferred,
         total: totalSize
       });
-      
+
       if (transferred >= totalSize) {
         clearInterval(transferInterval);
         setTimeout(() => {
           setConnectionState('completed');
           toast.success('File transfer completed successfully!');
         }, 500);
+        // Clean up the download link
+        URL.revokeObjectURL(url);
+        document.body.removeChild(link);
       }
     }, 200);
   };
@@ -181,10 +223,15 @@ const Receive = () => {
                 </p>
                 <button 
                   onClick={handleReset}
-                  className="btn-primary mx-auto"
-                >
+                  className="btn-primary mx-auto">
                   Return Home
                 </button>
+                <a
+                  href={incomingFile ? URL.createObjectURL(incomingFile) : ''}
+                  download={incomingFile ? incomingFile.name : ''}
+                  className="btn-primary mx-auto mt-4">
+                  Download File
+                </a>
               </div>
             </div>
           )}

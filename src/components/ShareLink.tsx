@@ -4,9 +4,10 @@ import { toast } from 'sonner';
 
 interface ShareLinkProps {
   link: string;
+   sdpOffer: string;
 }
 
-const ShareLink: React.FC<ShareLinkProps> = ({ link }) => {
+const ShareLink: React.FC<ShareLinkProps> = ({ link, sdpOffer }) => {
   const [isCopied, setIsCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 

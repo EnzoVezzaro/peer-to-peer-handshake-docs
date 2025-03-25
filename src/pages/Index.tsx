@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import FileUpload from '../components/FileUpload';
@@ -25,6 +24,7 @@ const Index = () => {
     total: number;
   } | null>(null);
   const [peerConnected, setPeerConnected] = useState<boolean>(false);
+  const [sdpOffer, setSdpOffer] = useState<string>('');
 
   // Handle file selection
   const handleFileSelect = (selectedFile: File) => {
@@ -32,24 +32,63 @@ const Index = () => {
     const roomId = generateRoomId();
     const link = createSharingLink(roomId);
     setSharingLink(link);
-    
+
     // Initialize peer connection
     const peerConnection = initiatePeerConnection(
       (state) => setConnectionState(state as ConnectionState),
-      (data) => console.log('Received data:', data),
+      (data) => {
+        console.log('Received data:', data);
+        toast.success(data);
+      },
       (name) => {
         setPeerName(name);
         setPeerConnected(true);
+        setConnectionState('connected');
         toast.success(`${name} connected! Ready to transfer.`);
       },
       (fileInfo) => {
         // As the sender, we don't show file preview - only receivers do
         // This is to fix issue #3
-      }
+      },
+      setFile,
+      true,
+      roomId,
     );
+
+    peerConnection.on('signal', data => {
+      setSdpOffer(JSON.stringify(data));
+    })
+
+    peerConnection.onData = (data) => {
+      console.log('Received data:', data);
+      toast.success(data);
+    };
 
     // Update connection state to waiting for peer
     setConnectionState('connecting');
+
+    // Simulate file transfer after connection
+    setTimeout(() => {
+      if (file) {
+        simulateFileTransfer(
+          file,
+          (progress, transferred, total, speed, remaining) => {
+            setTransferProgress(progress);
+            setTransferStats({
+              speed,
+              remaining,
+              transferred,
+              total
+            });
+          },
+          () => {
+            setConnectionState('completed');
+            toast.success('File transfer completed successfully!');
+          },
+          (file) => {}
+        );
+      }
+    }, 3000);
   };
 
   // Reset the state
@@ -81,11 +120,21 @@ const Index = () => {
         
         {!file && (
           <>
-            <FileUpload onFileSelect={handleFileSelect} />
+            <FileUpload onFileSelect={handleFileSelect} setFile={setFile} />
             <div className="w-full text-center my-4">
               <span className="text-muted-foreground px-4">or</span>
             </div>
-            <LinkInput />
+            <LinkInput
+              onConnectionStateChange={setConnectionState}
+              onData={(data) => {
+                console.log('Received data:', data);
+                toast.success(data);
+              }}
+              onPeerJoined={setPeerName}
+              onFileRequest={() => {}}
+              setFile={setFile}
+              sdpOffer={sdpOffer}
+            />
           </>
         )}
         
@@ -93,7 +142,7 @@ const Index = () => {
           <div className="w-full space-y-6">
             {/* Show share link if we're not done transferring */}
             {connectionState !== 'completed' && (
-              <ShareLink link={sharingLink} />
+              <ShareLink link={sharingLink} sdpOffer={sdpOffer} />
             )}
             
             {/* Show connection status */}
@@ -148,13 +197,13 @@ const Index = () => {
                           () => {
                             setConnectionState('completed');
                             toast.success('File transfer completed successfully!');
-                          }
+                          },
+                          (file) => {}
                         );
                       }
                     }, 1500);
                   }}
-                  className="btn-primary mx-auto"
-                >
+                  className="btn-primary mx-auto">
                   Request File Transfer
                 </button>
               </div>
@@ -186,8 +235,7 @@ const Index = () => {
                   </p>
                   <button 
                     onClick={handleReset}
-                    className="btn-primary mx-auto"
-                  >
+                    className="btn-primary mx-auto">
                     Share Another File
                   </button>
                 </div>

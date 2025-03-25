@@ -4,11 +4,12 @@ import { toast } from 'sonner';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
+  setFile: (file: File) => void;
 }
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
 
-const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, setFile }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,10 +50,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect }) => {
       if (validateFile(file)) {
         setSelectedFile(file);
         onFileSelect(file);
+        setFile(file);
         toast.success(`File "${file.name}" selected successfully.`);
       }
     }
-  }, [onFileSelect]);
+  }, [onFileSelect, setFile]);
 
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -61,10 +63,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect }) => {
       if (validateFile(file)) {
         setSelectedFile(file);
         onFileSelect(file);
+        setFile(file);
         toast.success(`File "${file.name}" selected successfully.`);
       }
     }
-  }, [onFileSelect]);
+  }, [onFileSelect, setFile]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';

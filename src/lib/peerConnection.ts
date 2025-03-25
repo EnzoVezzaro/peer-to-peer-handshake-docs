@@ -1,8 +1,12 @@
-
 // This is a simple implementation without the actual WebRTC code
 // In a real implementation, we would use the simple-peer library here
 
+import global from 'global';
+import * as process from "process";
+global.process = process;
+
 import { nanoid } from 'nanoid';
+import Peer from 'simple-peer';
 
 // Define a unique room ID for the connection
 export const generateRoomId = (): string => {
@@ -24,70 +28,61 @@ export const initiatePeerConnection = (
   onConnectionStateChange: (state: string) => void,
   onData: (data: any) => void,
   onPeerJoined: (peerName: string) => void,
-  onFileRequest: (file: File) => void
+  onFileRequest: (file: File) => void,
+  setFile: (file: File) => void,
+  isInitiator: boolean,
+  roomId: string,
+  sdpOffer?: string
 ) => {
   // In a real implementation, we would create a WebRTC peer connection here
   // using simple-peer or a similar library
   
-  const mockConnection = {
-    connect: () => {
-      onConnectionStateChange('connecting');
-      // Simulate connection delay
-      setTimeout(() => {
-        onConnectionStateChange('connected');
-        onPeerJoined('Anonymous User');
-      }, 1500);
-    },
-    
-    requestFileTransfer: (file: File) => {
-      onConnectionStateChange('waiting');
-      
-      // Simulate the recipient receiving the file info
-      setTimeout(() => {
-        onFileRequest(file);
-      }, 1000);
-    },
-    
-    sendFile: (file: File, 
-      onProgress: (progress: number, 
-        transferred: number, 
-        total: number, 
-        speed: number, 
-        remaining: number) => void) => {
-      onConnectionStateChange('transferring');
-      
-      // Simulate file transfer
-      const totalSize = file.size;
-      let transferred = 0;
-      const startTime = Date.now();
-      
-      const transferInterval = setInterval(() => {
-        // Simulate transfer of chunks
-        const chunkSize = Math.min(512 * 1024, totalSize - transferred); // 512KB chunks
-        transferred += chunkSize;
-        
-        const elapsedSeconds = (Date.now() - startTime) / 1000;
-        const speed = transferred / elapsedSeconds;
-        const progress = (transferred / totalSize) * 100;
-        const remaining = (totalSize - transferred) / speed;
-        
-        onProgress(progress, transferred, totalSize, speed, remaining);
-        
-        if (transferred >= totalSize) {
-          clearInterval(transferInterval);
-          setTimeout(() => {
-            onConnectionStateChange('completed');
-          }, 500);
-        }
-      }, 200);
-    },
-    
-    disconnect: () => {
-      onConnectionStateChange('disconnected');
-    }
-  };
+  let currentFile: File | null = null;
+
+  setFile = (file: File) => {
+    currentFile = file;
+  }
+
+  const peer = new Peer({
+    initiator: isInitiator,
+    trickle: false,
+  });
+
+  peer.on('signal', data => {
+    console.log('SIGNAL', JSON.stringify(data))
+    onData(JSON.stringify(data));
+  });
+
+  if (!isInitiator && sdpOffer) {
+    peer.signal(sdpOffer);
+  }
+
+  peer.on('connect', () => {
+    console.log('CONNECT')
+    onConnectionStateChange('connected');
+    onPeerJoined('Anonymous User');
+  })
+
+  peer.on('data', data => {
+    console.log('data: ' + data)
+  })
+
+  peer.on('stream', stream => {
+    // got remote video stream, now let's show it in a video tag
+    console.log('stream')
+  })
+
+  peer.on('close', () => {
+    console.log('close')
+    onConnectionStateChange('disconnected');
+  })
+
+  peer.on('error', err => {
+    console.log('error', err)
+    onConnectionStateChange('error');
+  })
   
-  return mockConnection;
+  return peer;
 };
 
 // Class to handle file transfers with chunking
