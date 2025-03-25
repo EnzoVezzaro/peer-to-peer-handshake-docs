@@ -1,7 +1,7 @@
 
 import React from 'react';
 
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'transferring' | 'completed' | 'error';
+export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'waiting' | 'transferring' | 'completed' | 'error';
 
 interface ConnectionStatusProps {
   state: ConnectionState;
@@ -28,6 +28,12 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, peerName }) 
           color: 'bg-green-500',
           text: 'Connected',
           description: `Connected to ${peerName || 'peer'}`
+        };
+      case 'waiting':
+        return {
+          color: 'bg-blue-400',
+          text: 'Waiting for Confirmation',
+          description: 'Waiting for recipient to accept the file transfer...'
         };
       case 'transferring':
         return {

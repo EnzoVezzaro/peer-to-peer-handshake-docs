@@ -35,7 +35,7 @@ const ShareLink: React.FC<ShareLinkProps> = ({ link }) => {
       <div className="glassmorphism p-6 rounded-xl">
         <h3 className="text-lg font-medium mb-3">Share this link with your recipient</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          The link will be valid until you close this page or the transfer is complete.
+          Send this link to the person you want to share with. They will need to confirm before any files are transferred.
         </p>
         
         <div className="flex gap-2">
@@ -55,9 +55,9 @@ const ShareLink: React.FC<ShareLinkProps> = ({ link }) => {
         </div>
         
         <div className="flex items-center gap-2 mt-4">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
           <p className="text-xs text-muted-foreground">
-            Waiting for connection...
+            Waiting for recipient to join using the link...
           </p>
         </div>
       </div>

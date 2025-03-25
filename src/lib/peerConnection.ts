@@ -22,7 +22,9 @@ export const fileToArrayBuffer = (file: File): Promise<ArrayBuffer> => {
 // Mock implementation
 export const initiatePeerConnection = (
   onConnectionStateChange: (state: string) => void,
-  onData: (data: any) => void
+  onData: (data: any) => void,
+  onPeerJoined: (peerName: string) => void,
+  onFileRequest: (file: File) => void
 ) => {
   // In a real implementation, we would create a WebRTC peer connection here
   // using simple-peer or a similar library
@@ -33,7 +35,17 @@ export const initiatePeerConnection = (
       // Simulate connection delay
       setTimeout(() => {
         onConnectionStateChange('connected');
+        onPeerJoined('Anonymous User');
       }, 1500);
+    },
+    
+    requestFileTransfer: (file: File) => {
+      onConnectionStateChange('waiting');
+      
+      // Simulate the recipient receiving the file info
+      setTimeout(() => {
+        onFileRequest(file);
+      }, 1000);
     },
     
     sendFile: (file: File, 
