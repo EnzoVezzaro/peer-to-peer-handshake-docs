@@ -1,69 +1,61 @@
-# Welcome to your Lovable project
+[![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/EnzoVezzaro/peer-to-peer-handshake-docs)
 
-## Project info
+# Peer-to-Peer Handshake
 
-**URL**: https://lovable.dev/projects/b7b3e85f-78f4-4531-993c-33afb77c9f65
+A peer-to-peer file sharing application that allows users to securely transfer files directly between browsers. It utilizes WebRTC technology for efficient and private data transfer, eliminating the need for intermediary servers.
 
-## How can I edit this code?
+**Table of Contents**
 
-There are several ways of editing your application.
+- [🏄 Get Started](#-get-started)
+- [✨ Code Style](#-code-style)
+- [🛳 Build](#-build)
+- [💖 Contributing](#-contributing)
 
-**Use Lovable**
+## 🏄 Get Started
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b7b3e85f-78f4-4531-993c-33afb77c9f65) and start prompting.
+The app is a React app built with [React.js](https://reactjs.org/) + TypeScript.
 
-Changes made via Lovable will be committed automatically to this repo.
+To start local development:
 
-**Use your preferred IDE**
+```bash
+git clone https://github.com/EnzoVezzaro/peer-to-peer-handshake-docs.git
+cd peer-to-peer-handshake-docs
+npm install
+```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Finally, start the development server:
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+This will start the development server.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## ✨ Code Style
 
-**Use GitHub Codespaces**
+Code style is automatically enforced through [ESLint](https://eslint.org) & [Prettier](https://prettier.io) rules.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+To run linting and auto-formatting manually, you can use:
 
-## What technologies are used for this project?
+```bash
+npm run lint
+npm run format
+```
 
-This project is built with .
+## 🛳 Build
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+To create a production build, run:
 
-## How can I deploy this project?
+```bash
+npm run build
+```
 
-Simply open [Lovable](https://lovable.dev/projects/b7b3e85f-78f4-4531-993c-33afb77c9f65) and click on Share -> Publish.
+## 💖 Contributing
 
-## I want to use a custom domain - is that possible?
+We welcome contributions in form of bug reports, feature requests, code changes, or documentation improvements.
 
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+Please make sure to follow our guidelines:
+
+- [Code of Conduct →](CODE_OF_CONDUCT.md)
+
+For important changes please create first an issue to discuss what you would like to change.
