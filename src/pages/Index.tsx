@@ -5,13 +5,26 @@ import ShareLink from '../components/ShareLink';
 import ConnectionStatus, { ConnectionState } from '../components/ConnectionStatus';
 import TransferProgress from '../components/TransferProgress';
 import FilePreview from '../components/FilePreview';
-// import LinkInput from '../components/LinkInput'; // Removed - Likely for receiver page
-import { createSharingLink /*, simulateFileTransfer*/ } from '../lib/fileTransfer'; // Commented out simulateFileTransfer
+import { createSharingLink } from '../lib/fileTransfer';
 import { generateRoomId, initiatePeerConnection } from '../lib/peerConnection';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button'; // Added Button
-import { Textarea } from '@/components/ui/textarea'; // Added Textarea
-import { Label } from '@/components/ui/label'; // Added Label
+import { Button } from '@/components/ui/button';
+import Peer, { DataConnection } from 'peerjs';
+
+type DataMessage = string | ArrayBuffer;
+type TransferStats = {
+  speed: number;
+  remaining: number;
+  transferred: number;
+  total: number;
+};
+
+type PeerManager = {
+  peer: Peer;
+  handleSignal: (signal: string) => void;
+  sendData: (data: DataMessage) => void;
+  sendFileInfo: (file: File) => void;
+};
 
 const Index = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -19,61 +32,51 @@ const Index = () => {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [transferProgress, setTransferProgress] = useState<number>(0);
   const [peerName, setPeerName] = useState<string>('');
-  const [showFilePreview, setShowFilePreview] = useState<boolean>(false); // Keep for potential receiver logic later
-  const [transferStats, setTransferStats] = useState<{ // Keep for actual transfer later
-    speed: number;
-    remaining: number;
-    transferred: number;
-    total: number;
-  } | null>(null);
+  const [showFilePreview, setShowFilePreview] = useState<boolean>(false);
+  const [transferStats, setTransferStats] = useState<TransferStats | null>(null);
   const [peerConnected, setPeerConnected] = useState<boolean>(false);
-  const [signalToSend, setSignalToSend] = useState<string>(''); // Renamed from sdpOffer
-  const [receivedSignal, setReceivedSignal] = useState<string>(''); // State for incoming signal
-  const [peerManager, setPeerManager] = useState<{ pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void, sendFileInfo: (file: File) => void } | null>(null); // State for peer connection manager
+  const [signalToSend, setSignalToSend] = useState<string>('');
+  const [peerManager, setPeerManager] = useState<PeerManager | null>(null);
 
   // Handle file selection (Initiator)
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
     const roomId = generateRoomId();
-    const link = createSharingLink(roomId);
-    setSharingLink(link); // Keep sharing link generation
 
-    // Initialize peer connection using the new function
     const manager = initiatePeerConnection(
-      (state) => { // onConnectionStateChange
+      (state: ConnectionState) => {
         console.log("Connection state changed:", state);
-        setConnectionState(state as ConnectionState);
+        setConnectionState(state);
         if (state === 'connected') {
-          setPeerConnected(true); // Assume connected when state is 'connected'
+          setPeerConnected(true);
         } else {
           setPeerConnected(false);
         }
       },
-      (signal) => { // sendSignal (captures offer/candidates)
-        console.log("Signal to send:", signal);
-        // Append signals if needed, or just set the latest (simple approach for now)
-        setSignalToSend(prev => prev ? `${prev}\n${signal}` : signal);
+      (peerId) => {
+        console.log("Peer ID generated:", peerId);
+        // Optionally generate and set sharing link
+        const link = createSharingLink(roomId);
+        setSharingLink(link);
+        setSignalToSend(peerId); // Assuming peerId contains the initial connection signal
       },
-      (data) => { // onDataReceived (handles data channel messages)
+      async (data: DataMessage) => {
         console.log('Data received via data channel:', data);
-        // Handle incoming data (e.g., chat, file transfer ACKs)
         if (typeof data === 'string') {
           toast.info(`Received message: ${data}`);
-        } else {
+        } else if (data instanceof ArrayBuffer) {
           toast.info(`Received binary data: ${data.byteLength} bytes`);
         }
+        return;
       },
-      (name) => { // onPeerJoined
+      async (name) => {
         setPeerName(name);
-        // Note: Connection state is handled by onConnectionStateChange now
         toast.success(`${name} connected!`);
+        return;
       },
-      (fileInfo) => { // onFileRequest (placeholder)
-        console.log("File request received (sender shouldn't get this usually):", fileInfo);
-      },
-      setFile, // setFile (placeholder)
-      true,    // isInitiator
+      true,
       roomId,
+      undefined,
       (progress, transferred, total, speed, remaining) => {
         setTransferProgress(progress);
         setTransferStats({ speed, remaining, transferred, total });
@@ -81,41 +84,32 @@ const Index = () => {
     );
 
     if (manager) {
-      setPeerManager(manager);
-      setConnectionState('connecting'); // Initial state after setup
+      setPeerManager({
+        peer: manager.peer, 
+        handleSignal: manager.handleSignal,
+        sendData: manager.sendData,
+        sendFileInfo: manager.sendFileInfo,
+      });
+      setConnectionState('connecting');
     } else {
       console.error("Failed to initialize peer connection.");
       toast.error("Failed to initialize WebRTC connection.");
       setConnectionState('error');
     }
-
-    // // Simulate file transfer after connection - COMMENTED OUT FOR NOW
-    // setTimeout(() => {
-    //   if (file && peerManager && connectionState === 'connected') {
-    //     console.log("Starting simulated file transfer...");
-    //     setConnectionState('transferring'); // Set state before starting
-    //     // TODO: Replace simulateFileTransfer with actual WebRTC data sending using peerManager.sendData
-    //     simulateFileTransfer(
-    //       file,
-    //       (progress, transferred, total, speed, remaining) => {
-    //         setTransferProgress(progress);
-    //         setTransferStats({ speed, remaining, transferred, total });
-    //       },
-    //       () => {
-    //         setConnectionState('completed');
-    //         toast.success('File transfer completed successfully!');
-    //       },
-    //       (file) => {} // Placeholder for onFileReceived
-    //     );
-    //   } else if (!peerManager || connectionState !== 'connected') {
-    //       console.warn("Cannot start transfer: Not connected.");
-    //       // Optionally reset state or show error
-    //   }
-    // }, 5000); // Increased delay to allow connection setup
   };
 
   // Reset the state
   const handleReset = () => {
+    // Properly close existing peer connection
+    if (peerManager?.peer) {
+      try {
+        peerManager.peer.close();
+      } catch (error) {
+        console.error("Error closing peer connection:", error);
+      }
+    }
+
+    // Reset all state variables
     setFile(null);
     setSharingLink('');
     setConnectionState('disconnected');
@@ -124,43 +118,70 @@ const Index = () => {
     setPeerName('');
     setShowFilePreview(false);
     setPeerConnected(false);
-    setSignalToSend(''); // Reset signal state
-    setReceivedSignal(''); // Reset signal state
-    // Close existing peer connection if any
-    if (peerManager?.pc) {
-      peerManager.pc.close();
-    }
-    setPeerManager(null); // Reset peer manager
-  };
-
-  // Handle pasting/submitting the received signal (answer/candidates)
-  const handleReceivedSignalSubmit = () => {
-    if (peerManager && receivedSignal.trim()) {
-      console.log("Handling received signal:", receivedSignal);
-      // Split potentially multiple JSON signals pasted together
-      receivedSignal.trim().split('\n').forEach(signalStr => {
-        if (signalStr.trim()) {
-          peerManager.handleSignal(signalStr.trim());
-        }
-      });
-      // Optionally clear the textarea after handling
-      // setReceivedSignal('');
-    } else {
-      toast.warning("No peer connection active or no signal pasted.");
-    }
+    setSignalToSend('');
+    setPeerManager(null);
   };
 
   // Function to send a test message
-  const sendTestMessage = () => {
+  const sendTestMessage = async () => {
     if (peerManager && connectionState === 'connected') {
       const message = `Hello from sender! ${new Date().toLocaleTimeString()}`;
-      peerManager.sendData(message);
-      toast.success("Test message sent!");
+      try {
+        await peerManager.sendData(message);
+        toast.success("Test message sent!");
+      } catch (error) {
+        console.error("Failed to send test message:", error);
+        toast.error(`Failed to send test message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     } else {
       toast.warning("Cannot send message: Not connected.");
     }
   };
 
+  // Enhanced file transfer function
+  const startFileTransfer = async () => {
+    if (file && peerManager && connectionState === 'connected') {
+      try {
+        console.log("Starting file transfer...");
+        setConnectionState('transferring');
+        
+        // Send file info first
+        await peerManager.sendFileInfo(file);
+
+        const chunkSize = 16384;
+        let offset = 0;
+        const startTime = Date.now();
+
+        while (offset < file.size) {
+          const chunk = file.slice(offset, offset + chunkSize);
+          await peerManager.sendData(await chunk.arrayBuffer());
+          offset += chunkSize;
+
+          const elapsedTime = (Date.now() - startTime) / 1000;
+          const speed = offset / elapsedTime;
+          const progress = Math.min(1, offset / file.size);
+          const remaining = (file.size - offset) / speed;
+
+          setTransferProgress(progress);
+          setTransferStats({ 
+            speed, 
+            remaining: Math.max(0, remaining), 
+            transferred: offset, 
+            total: file.size 
+          });
+        }
+
+        setConnectionState('completed');
+        toast.success('File transfer completed successfully!');
+      } catch (error) {
+        console.error("File transfer failed:", error);
+        setConnectionState('error');
+        toast.error(`File transfer failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      toast.warning("Cannot start transfer: Not connected or no file selected.");
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -178,43 +199,21 @@ const Index = () => {
         </div>
         
         {!file && (
-          <>
-            <FileUpload onFileSelect={handleFileSelect} setFile={setFile} />
-            {/* Removed LinkInput - Receiver functionality */}
-          </>
+          <FileUpload onFileSelect={handleFileSelect} setFile={setFile} />
         )}
         
-        {file && sharingLink && (
+        {file && (
           <div className="w-full space-y-6">
-            {/* 1. Show link and signal to send */}
             {connectionState !== 'completed' && (
-              <ShareLink link={sharingLink} signalData={signalToSend} /> // Pass signalToSend
+              <ShareLink link={sharingLink} signalData={signalToSend} />
             )}
 
-            {/* 2. Input for receiving signal from peer */}
-            {peerManager && connectionState !== 'connected' && connectionState !== 'completed' && connectionState !== 'error' && (
-              <div className="w-full max-w-3xl mx-auto space-y-2">
-                 <Label htmlFor="received-signal">Paste Peer's Signal (Answer/Candidates):</Label>
-                 <Textarea
-                   id="received-signal"
-                   placeholder="Paste the signal code from the receiver here..."
-                   value={receivedSignal}
-                   onChange={(e) => setReceivedSignal(e.target.value)}
-                   rows={4}
-                   className="bg-background/80 backdrop-blur-sm"
-                 />
-                 <Button onClick={handleReceivedSignalSubmit} disabled={!receivedSignal.trim()}>Connect to Peer</Button>
-              </div>
-            )}
-
-            {/* 3. Show connection status */}
             <ConnectionStatus 
               state={connectionState} 
               peerName={peerConnected ? peerName : ''}
               isPeerConnected={peerConnected}
             />
             
-            {/* 4. Show file preview (kept logic, but sender usually doesn't need this) */}
             {showFilePreview && file && (
               <FilePreview
                 file={file}
@@ -223,7 +222,6 @@ const Index = () => {
               />
             )}
 
-            {/* 5. Show transfer progress (logic kept for future actual transfer) */}
             {connectionState === 'transferring' && transferStats && (
               <TransferProgress
                 progress={transferProgress}
@@ -234,45 +232,11 @@ const Index = () => {
               />
             )}
 
-            {/* 6. Show buttons for interaction when connected */}
             {connectionState === 'connected' && peerConnected && (
                <div className="w-full max-w-3xl mx-auto text-center mt-4 space-x-4">
                  <Button onClick={sendTestMessage}>Send Test Message</Button>
-                 {/* Add button to initiate actual file transfer later */}
                  <Button
-                   onClick={async () => {
-                     if (file && peerManager && connectionState === 'connected') {
-                       console.log("Starting file transfer...");
-                       setConnectionState('transferring');
-
-                       // Send file info
-                       peerManager.sendFileInfo(file);
-
-                       const chunkSize = 16384; // Adjust chunk size as needed
-                       let offset = 0;
-
-                       while (offset < file.size) {
-                         const chunk = file.slice(offset, offset + chunkSize);
-                         peerManager.sendData(await chunk.arrayBuffer());
-                         offset += chunkSize;
-
-                         const progress = Math.min(1, offset / file.size);
-                         const transferred = offset;
-                         const total = file.size;
-                         // Basic transfer stats (improve as needed)
-                         const speed = 1000; // placeholder
-                         const remaining = (total - transferred) / speed; // placeholder
-
-                         setTransferProgress(progress);
-                         setTransferStats({ speed, remaining, transferred, total });
-                       }
-
-                       setConnectionState('completed');
-                       toast.success('File transfer completed successfully!');
-                     } else {
-                       toast.warning("Cannot start transfer: Not connected or no file selected.");
-                     }
-                   }}
+                   onClick={startFileTransfer}
                    className="btn-primary"
                  >
                    Start File Transfer
@@ -280,7 +244,6 @@ const Index = () => {
                </div>
              )}
 
-            {/* 7. Show completion message */}
             {connectionState === 'completed' && (
               <div className="w-full max-w-3xl mx-auto animate-fade-in">
                 <div className="glassmorphism p-6 rounded-xl text-center">
@@ -304,11 +267,12 @@ const Index = () => {
                   <p className="text-muted-foreground mb-4">
                     Your file "{file?.name}" was successfully transferred.
                   </p>
-                  <button 
+                  <Button 
                     onClick={handleReset}
-                    className="btn-primary mx-auto">
+                    className="btn-primary mx-auto"
+                  >
                     Share Another File
-                  </button> {/* Fixed closing tag */}
+                  </Button>
                 </div>
               </div>
             )}

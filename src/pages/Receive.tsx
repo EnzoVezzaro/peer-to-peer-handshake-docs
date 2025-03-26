@@ -6,6 +6,7 @@ import TransferProgress from '../components/TransferProgress';
 import FilePreview from '../components/FilePreview';
 import { toast } from 'sonner';
 import { initiatePeerConnection } from '../lib/peerConnection';
+import { Peer } from 'peerjs';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -27,11 +28,7 @@ const Receive = () => {
     total: number;
   } | null>(null);
   const [peerConnected, setPeerConnected] = useState<boolean>(false);
-  const [signalToSend, setSignalToSend] = useState<string>('');
-  const [receivedSignal, setReceivedSignal] = useState<string>(searchParams.get('signal') || '');
-  const [peerManager, setPeerManager] = useState<{ pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void } | null>(null);
-  const [isSignalCopied, setIsSignalCopied] = useState(false);
-  const signalTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [peerManager, setPeerManager] = useState<{ peer: Peer, connectToPeer: (receiverPeerId: string) => void, sendData: (data: string | ArrayBuffer) => void, sendFileInfo: (file: File) => void } | null>(null);
   const [receivedFileChunks, setReceivedFileChunks] = useState<ArrayBuffer[]>([]);
   const [receivedFileBlob, setReceivedFileBlob] = useState<Blob | null>(null);
   const [receivedFileUrl, setReceivedFileUrl] = useState<string | null>(null);
@@ -48,6 +45,8 @@ const Receive = () => {
     console.log('Initializing receiver for room:', roomId);
     setConnectionState('connecting');
 
+    const initiatorPeerId = searchParams.get('signal');
+
     const manager = initiatePeerConnection(
       (state) => {
         console.log("Connection state changed:", state);
@@ -62,9 +61,8 @@ const Receive = () => {
           }
         }
       },
-      (signal) => {
-        console.log("Signal to send (Answer/Candidates):", signal);
-        setSignalToSend(prev => prev ? `${prev}\n${signal}` : signal);
+      (id) => {
+        // Receiver doesn't send a signal, so this is a no-op
       },
       (data) => {
         console.log('Data received via data channel:', data);
@@ -113,12 +111,10 @@ const Receive = () => {
         setPeerName(name);
         toast.success(`${name} connected!`);
       },
-      (fileInfo) => {
-        console.log("File request received (should not happen for receiver):", fileInfo);
-      },
-      () => { },
       false,
-      roomId
+      roomId,
+      initiatorPeerId,
+      undefined
     );
 
     if (manager) {
@@ -131,13 +127,12 @@ const Receive = () => {
 
     return () => {
       console.log("Cleaning up peer connection for receiver.");
-      manager?.pc?.close();
       setPeerManager(null);
       if (receivedFileUrl) {
         URL.revokeObjectURL(receivedFileUrl);
       }
     };
-  }, [roomId, navigate, receivedFileUrl]);
+  }, [roomId, navigate, receivedFileUrl, searchParams]);
 
   const handleAcceptTransfer = () => {
     if (!incomingFile) return;
@@ -167,32 +162,6 @@ const Receive = () => {
 
   const handleReset = () => {
     navigate('/');
-  };
-
-  const handleReceivedSignalSubmit = () => {
-    if (peerManager && receivedSignal.trim()) {
-      console.log("Handling received signal (Offer/Candidates):", receivedSignal);
-      receivedSignal.trim().split('\n').forEach(signalStr => {
-        if (signalStr.trim()) {
-          peerManager.handleSignal(signalStr.trim());
-        }
-      });
-    } else {
-      toast.warning("Peer connection not ready or no signal pasted.");
-    }
-  };
-
-  const handleCopySignal = () => {
-    if (signalTextareaRef.current) {
-      navigator.clipboard.writeText(signalToSend).then(() => {
-        setIsSignalCopied(true);
-        toast.success('Signal data copied to clipboard!');
-        setTimeout(() => setIsSignalCopied(false), 3000);
-      }).catch(err => {
-        toast.error('Failed to copy signal data.');
-        console.error('Failed to copy signal data: ', err);
-      });
-    }
   };
 
   const sendTestMessage = () => {
@@ -228,51 +197,6 @@ const Receive = () => {
             isPeerConnected={peerConnected}
           />
 
-          {/* Input for Initiator's Signal */}
-          {connectionState !== 'connected' && connectionState !== 'completed' && connectionState !== 'error' && (
-            <div className="w-full max-w-3xl mx-auto space-y-2 glassmorphism p-6 rounded-xl">
-              <Label htmlFor="received-signal">1. Paste Initiator's Signal (Offer/Candidates):</Label>
-              <Textarea
-                id="received-signal"
-                placeholder="Paste the signal code from the sender here..."
-                value={receivedSignal}
-                onChange={(e) => setReceivedSignal(e.target.value)}
-                disabled={receivedSignal ? true : false}
-                rows={4}
-                className="bg-background/80 backdrop-blur-sm font-mono text-xs"
-              />
-              <Button onClick={handleReceivedSignalSubmit} disabled={!receivedSignal.trim() || !!signalToSend}>
-                Connect to Peer
-              </Button>
-              {connectionState === 'connecting' && !signalToSend && <p className="text-xs text-muted-foreground">Connecting...</p>}
-            </div>
-          )}
-
-          {/* Display Receiver's Signal to Send Back */}
-          {signalToSend && connectionState !== 'connected' && connectionState !== 'completed' && (
-            <div className="w-full max-w-3xl mx-auto space-y-2 glassmorphism p-6 rounded-xl">
-              <Label htmlFor="signal-to-send">2. Send Your Signal Back to Initiator:</Label>
-              <Textarea
-                ref={signalTextareaRef}
-                id="signal-to-send"
-                value={signalToSend}
-                disabled={signalToSend ? true : false}
-                readOnly
-                rows={4}
-                className="bg-background/80 backdrop-blur-sm font-mono text-xs"
-              />
-              <Button
-                onClick={handleCopySignal}
-                className={`w-full sm:w-auto ${isSignalCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                variant="secondary"
-              >
-                {isSignalCopied ? 'Copied!' : 'Copy Your Signal'}
-              </Button>
-              <p className="text-xs text-muted-foreground">Copy this signal (answer/candidates) and send it back to the initiator.</p>
-            </div>
-          )}
-
-          {/* Show file preview for confirming transfer */}
           {showFilePreview && incomingFile && connectionState === 'confirming' && (
             <FilePreview
               file={incomingFile}
