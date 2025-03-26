@@ -122,7 +122,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, setFile }) => {
           onChange={handleFileInputChange}
         />
         <button 
-          className="btn-primary mt-4"
+          className="bg-[#E6F2FF] text-[#1786FB] hover:bg-[#D1E9FF] px-6 py-2.5 rounded-lg transition-colors duration-300 ease-in-out"
           onClick={handleButtonClick}
         >
           Choose a File

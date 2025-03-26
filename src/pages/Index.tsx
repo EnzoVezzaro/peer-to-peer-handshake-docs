@@ -248,7 +248,7 @@ const Index = () => {
 
             {connectionState === 'connected' && peerConnected && (
               <div className="w-full max-w-3xl mx-auto text-center mt-4 space-x-4">
-                <Button onClick={sendTestMessage}>Send Test Message</Button>
+                <Button onClick={sendTestMessage} className="bg-[#E6F2FF] text-[#1786FB] hover:bg-[#D1E9FF] px-6 py-2.5 rounded-lg transition-colors duration-300 ease-in-out">Say Hello!</Button>
                 <Button
                   onClick={startFileTransfer}
                   className="btn-primary"
@@ -283,7 +283,7 @@ const Index = () => {
                   </p>
                   <Button
                     onClick={handleReset}
-                    className="btn-primary mx-auto"
+                    className="bg-[#E6F2FF] text-[#1786FB] hover:bg-[#D1E9FF] px-6 py-2.5 rounded-lg transition-colors duration-300 ease-in-out"
                   >
                     Share Another File
                   </Button>
@@ -316,7 +316,7 @@ const Index = () => {
                   </p>
                   <Button
                     onClick={handleReset}
-                    className="btn-primary mx-auto"
+                    className="bg-[#E6F2FF] text-[#1786FB] hover:bg-[#D1E9FF] px-6 py-2.5 rounded-lg transition-colors duration-300 ease-in-out"
                   >
                     Share Another File
                   </Button>

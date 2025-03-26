@@ -60,7 +60,7 @@ const ShareLink: React.FC<ShareLinkProps> = ({ link, signalData }) => {
           />
           <Button
             onClick={handleCopyLink}
-            className={`min-w-20 ${isLinkCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+            className="bg-[#E6F2FF] text-[#1786FB] hover:bg-[#D1E9FF] px-6 py-2.5 rounded-lg transition-colors duration-300 ease-in-out"
             variant="default"
           >
             {isLinkCopied ? 'Copied!' : 'Copy Link'}
