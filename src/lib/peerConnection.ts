@@ -87,6 +87,8 @@ export const initiatePeerConnection = (
 
     connection.on('data', (data: string | ArrayBuffer) => {
       console.log(`Data received from ${connection.peer}:`, data);
+      console.log("Received data:", data); // ADDED LOG
+      console.log("Data received on 'data' event:", data); // ADDED LOG
       onDataReceived(data);
     });
 
@@ -108,6 +110,8 @@ export const initiatePeerConnection = (
     return new Promise<void>((resolve, reject) => {
       if (connection && connection.open) {
         try {
+          console.log("Connection status:", connection, connection?.open); // ADDED LOG
+          console.log("Sending data:", data); // ADDED LOG
           if (file && onTransferProgress) {
             const transfer = new FileTransfer(file, onTransferProgress);
             const totalChunks = transfer.getTotalChunks();
@@ -132,6 +136,8 @@ export const initiatePeerConnection = (
               resolve();
             })();
           } else {
+            console.log("Sending data (no file):", data);
+            connection.send(data);
             resolve();
           }
         } catch (error) {
@@ -229,6 +235,7 @@ export const initiatePeerConnection = (
 
     // Return the necessary objects/functions for external management
     const handleSignal = (signal: string) => {
+      console.log("Handling signal:", signal); // ADDED LOG
       if (!isInitiator) {
         connectToPeer(signal);
       }

@@ -28,7 +28,7 @@ const Receive = () => {
     total: number;
   } | null>(null);
   const [peerConnected, setPeerConnected] = useState<boolean>(false);
-  const [peerManager, setPeerManager] = useState<{ peer: Peer, connectToPeer: (receiverPeerId: string) => void, sendData: (data: string | ArrayBuffer) => void, sendFileInfo: (file: File) => void } | null>(null);
+  const [peerManager, setPeerManager] = useState<{ peer: Peer, connectToPeer: (receiverPeerId: string) => void, sendData: (file: File | null, data: string | ArrayBuffer) => void, sendFileInfo: (file: File) => void } | null>(null);
   const [receivedFileChunks, setReceivedFileChunks] = useState<ArrayBuffer[]>([]);
   const [receivedFileBlob, setReceivedFileBlob] = useState<Blob | null>(null);
   const [receivedFileUrl, setReceivedFileUrl] = useState<string | null>(null);
@@ -53,7 +53,6 @@ const Receive = () => {
         setConnectionState(state as ConnectionState);
         if (state === 'connected') {
           setPeerConnected(true);
-          setConnectionState('waiting');
         } else {
           setPeerConnected(false);
           if (state === 'failed' || state === 'closed' || state === 'disconnected') {
@@ -153,14 +152,14 @@ const Receive = () => {
     toast.info(`Starting download for ${incomingFile.name}...`);
     setConnectionState('completed');
     const message = `transfer-completed`;
-    peerManager.sendData(message);
+    peerManager.sendData(null, message);
   };
 
   const handleDeclineTransfer = () => {
     setShowFilePreview(false);
     setConnectionState('connected');
     const message = `transfer-declined`;
-    peerManager.sendData(message);
+    peerManager.sendData(null, message);
     toast.info('File transfer declined');
   };
 
@@ -170,8 +169,8 @@ const Receive = () => {
 
   const sendTestMessage = () => {
     if (peerManager && connectionState === 'connected') {
-      const message = `Hello from receiver! ${new Date().toLocaleTimeString()}`;
-      peerManager.sendData(message);
+      const message = JSON.stringify({ type: 'test-message', payload: `Hello from receiver! ${new Date().toLocaleTimeString()}` });
+      peerManager.sendData(undefined, message);
       toast.success("Test message sent!");
     } else {
       toast.warning("Cannot send message: Not connected.");

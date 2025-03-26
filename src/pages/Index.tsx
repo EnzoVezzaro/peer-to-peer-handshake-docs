@@ -22,8 +22,8 @@ type TransferStats = {
 type PeerManager = {
   peer: Peer;
   handleSignal: (signal: string) => void;
-      sendData: (file: File, data: DataMessage, onTransferProgress?: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void) => void;
-      sendFileInfo: (file: File) => void;
+  sendData: (file: File, data: DataMessage, onTransferProgress?: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void) => void;
+  sendFileInfo: (file: File) => void;
     };
 
 const Index = () => {
@@ -135,9 +135,9 @@ const Index = () => {
   // Function to send a test message
   const sendTestMessage = async () => {
     if (peerManager && connectionState === 'connected') {
-      const message = `Hello from sender! ${new Date().toLocaleTimeString()}`;
+      const message = JSON.stringify({ type: 'test-message', payload: `Hello from sender! ${new Date().toLocaleTimeString()}` });
       try {
-        await peerManager.sendData(file!, message);
+        await peerManager.sendData(undefined, message); 
         toast.success("Test message sent!");
       } catch (error) {
         console.error("Failed to send test message:", error);
