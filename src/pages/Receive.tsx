@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'; // Added useRef
-import { useParams, useNavigate } from 'react-router-dom'; // Removed useSearchParams
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'; // Removed useSearchParams
 import Header from '../components/Header';
 import ConnectionStatus, { ConnectionState } from '../components/ConnectionStatus';
 import TransferProgress from '../components/TransferProgress';
@@ -12,7 +12,9 @@ import { Label } from '@/components/ui/label'; // Added Label
 
 const Receive = () => {
   const { roomId } = useParams<{ roomId: string }>(); // Typed useParams
-  // const [searchParams, setSearchParams] = useSearchParams(); // Removed, not using URL params for signal
+  const [searchParams, setSearchParams] = useSearchParams();
+  // console.log('search: ', searchParams.get('signal'));
+  
   const navigate = useNavigate();
 
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
@@ -30,7 +32,7 @@ const Receive = () => {
   const [signalToSend, setSignalToSend] = useState<string>(''); // Renamed from sdpAnswer
   // const [sdpOffer, setSdpOffer] = useState<string>(searchParams.get("sdpOffer")); // Removed
   // const [currentConnection, setCurrentConnection] = useState<string>(null); // Removed
-  const [receivedSignal, setReceivedSignal] = useState<string>(''); // State for incoming signal
+  const [receivedSignal, setReceivedSignal] = useState<string>(searchParams.get('signal'));
   const [peerManager, setPeerManager] = useState<{ pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void } | null>(null); // State for peer connection manager
   const [isSignalCopied, setIsSignalCopied] = useState(false); // State for copy button
   const signalTextareaRef = useRef<HTMLTextAreaElement>(null); // Ref for signal textarea
@@ -41,7 +43,7 @@ const Receive = () => {
   const [receivedBytes, setReceivedBytes] = useState<number>(0);
 
   useEffect(() => {
-    if (!roomId) {
+    if (!roomId && !receivedSignal) {
       toast.error('Invalid sharing link');
       navigate('/');
       return;
@@ -259,6 +261,7 @@ const Receive = () => {
                 placeholder="Paste the signal code from the sender here..."
                 value={receivedSignal}
                 onChange={(e) => setReceivedSignal(e.target.value)}
+                disabled={receivedSignal ? true : false}
                 rows={4}
                 className="bg-background/80 backdrop-blur-sm font-mono text-xs"
               />
@@ -277,6 +280,7 @@ const Receive = () => {
                 ref={signalTextareaRef}
                 id="signal-to-send"
                 value={signalToSend}
+                disabled={signalToSend ? true : false}
                 readOnly
                 rows={4}
                 className="bg-background/80 backdrop-blur-sm font-mono text-xs"

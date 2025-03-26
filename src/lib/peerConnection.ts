@@ -32,16 +32,64 @@ export const initiatePeerConnection = (
   setFile: (file: File) => void,       // Keep for potential future use
   isInitiator: boolean,
   roomId: string,
+	signal?: string, // Optional signal data from URL
   onTransferProgress?: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void
 ): { pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void, sendFileInfo: (file: File) => void } | null => {
   // In a real implementation, we would create a WebRTC peer connection here
   // using WebRTC directly
 
+  // Function to handle incoming signals
+  const handleSignal = (signalString: string) => {
+    if (!pc) return; // Should not happen if initialized correctly
+
+    try {
+      const signal = JSON.parse(signalString);
+      console.log('Received signal:', signal);
+
+      if (signal.type === 'offer' && !isInitiator) {
+        console.log('Received offer, setting remote description and creating answer...');
+        const offerDesc = new RTCSessionDescription({ type: 'offer', sdp: signal.sdp });
+        pc.setRemoteDescription(offerDesc)
+          .then(() => pc.createAnswer())
+          .then(answer => pc.setLocalDescription(answer))
+          .then(() => {
+            console.log('Answer created and set as local description. Sending answer...');
+            if (pc.localDescription) {
+              sendSignal(JSON.stringify({ type: 'answer', sdp: pc.localDescription.sdp }));
+            }
+          })
+          .catch(error => console.error('Error handling offer:', error));
+
+      } else if (signal.type === 'answer' && isInitiator) {
+        console.log('Received answer, setting remote description...');
+        const answerDesc = new RTCSessionDescription({ type: 'answer', sdp: signal.sdp });
+        pc.setRemoteDescription(answerDesc)
+          .catch(error => console.error('Error setting remote description from answer:', error));
+
+      } else if (signal.type === 'candidate') {
+        console.log('Received ICE candidate, adding...');
+        if (signal.candidate) {
+          pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
+            .catch(error => console.error('Error adding received ICE candidate:', error));
+        }
+      } else {
+        console.warn('Received unknown signal type:', signal.type);
+      }
+    } catch (error) {
+      console.error('Error parsing signal:', error);
+    }
+  };
+
   const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
   const pc = new RTCPeerConnection(configuration); // Changed 'let' to 'const'
   let dc: RTCDataChannel | null = null; // Data channel - needs to be let as it's assigned later
 
-  console.log(`Initiating Peer Connection: initiator=${isInitiator}, roomId=${roomId}`);
+  console.log(`Initiating Peer Connection: initiator=${isInitiator}, roomId=${roomId}, signal=${signal}`);
+
+	// Handle initial signal if provided
+	if (signal) {
+		handleSignal(signal);
+	}
 
   // --- ICE Candidate Handling ---
   pc.onicecandidate = (event) => {
@@ -132,48 +180,6 @@ export const initiatePeerConnection = (
     };
     // Receiver logic moved to handleSignal below
   }
-
-  // Function to handle incoming signals
-  const handleSignal = (signalString: string) => {
-    if (!pc) return; // Should not happen if initialized correctly
-
-    try {
-      const signal = JSON.parse(signalString);
-      console.log('Received signal:', signal);
-
-      if (signal.type === 'offer' && !isInitiator) {
-        console.log('Received offer, setting remote description and creating answer...');
-        const offerDesc = new RTCSessionDescription({ type: 'offer', sdp: signal.sdp });
-        pc.setRemoteDescription(offerDesc)
-          .then(() => pc.createAnswer())
-          .then(answer => pc.setLocalDescription(answer))
-          .then(() => {
-            console.log('Answer created and set as local description. Sending answer...');
-            if (pc.localDescription) {
-              sendSignal(JSON.stringify({ type: 'answer', sdp: pc.localDescription.sdp }));
-            }
-          })
-          .catch(error => console.error('Error handling offer:', error));
-
-      } else if (signal.type === 'answer' && isInitiator) {
-        console.log('Received answer, setting remote description...');
-        const answerDesc = new RTCSessionDescription({ type: 'answer', sdp: signal.sdp });
-        pc.setRemoteDescription(answerDesc)
-          .catch(error => console.error('Error setting remote description from answer:', error));
-
-      } else if (signal.type === 'candidate') {
-        console.log('Received ICE candidate, adding...');
-        if (signal.candidate) {
-          pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
-            .catch(error => console.error('Error adding received ICE candidate:', error));
-        }
-      } else {
-        console.warn('Received unknown signal type:', signal.type);
-      }
-    } catch (error) {
-      console.error('Error parsing signal:', error);
-    }
-  };
 
   // Function to send data over the data channel
   const sendData = (data: string | ArrayBuffer) => {
