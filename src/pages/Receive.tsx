@@ -152,11 +152,15 @@ const Receive = () => {
     URL.revokeObjectURL(url);
     toast.info(`Starting download for ${incomingFile.name}...`);
     setConnectionState('completed');
+    const message = `transfer-completed`;
+    peerManager.sendData(message);
   };
 
   const handleDeclineTransfer = () => {
     setShowFilePreview(false);
     setConnectionState('connected');
+    const message = `transfer-declined`;
+    peerManager.sendData(message);
     toast.info('File transfer declined');
   };
 

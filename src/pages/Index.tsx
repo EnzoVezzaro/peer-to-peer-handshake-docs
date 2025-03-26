@@ -37,6 +37,7 @@ const Index = () => {
   const [peerConnected, setPeerConnected] = useState<boolean>(false);
   const [signalToSend, setSignalToSend] = useState<string>('');
   const [peerManager, setPeerManager] = useState<PeerManager | null>(null);
+  const [peerResponse, setPeerResponse] = useState<string>('');
 
   // Handle file selection (Initiator)
   const handleFileSelect = (selectedFile: File) => {
@@ -62,8 +63,14 @@ const Index = () => {
       },
       async (data: DataMessage) => {
         console.log('Data received via data channel:', data);
-        if (typeof data === 'string') {
+        if (typeof data === 'string' && data !== `transfer-completed`) {
           toast.info(`Received message: ${data}`);
+        } if (typeof data === 'string' && data === `transfer-completed`) {
+          setPeerResponse(`transfer-completed`)
+          toast.info(`User has Downloaded the File: ${data}`);
+        } if (typeof data === 'string' && data === `transfer-declined`) { 
+          setPeerResponse(`transfer-declined`)
+          toast.info(`User has Declined the File: ${data}`);
         } else if (data instanceof ArrayBuffer) {
           toast.info(`Received binary data: ${data.byteLength} bytes`);
         }
@@ -251,7 +258,7 @@ const Index = () => {
               </div>
             )}
 
-            {connectionState === 'completed' && (
+            {peerResponse === 'transfer-completed' && connectionState === 'completed' && (
               <div className="w-full max-w-3xl mx-auto animate-fade-in">
                 <div className="glassmorphism p-6 rounded-xl text-center">
                   <div className="w-16 h-16 mx-auto flex items-center justify-center bg-green-100 rounded-full mb-4">
@@ -273,6 +280,39 @@ const Index = () => {
                   <h3 className="text-xl font-medium mb-2">Transfer Complete!</h3>
                   <p className="text-muted-foreground mb-4">
                     Your file "{file?.name}" was successfully transferred.
+                  </p>
+                  <Button
+                    onClick={handleReset}
+                    className="btn-primary mx-auto"
+                  >
+                    Share Another File
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {peerResponse === 'transfer-declined' && connectionState === 'completed' && (
+              <div className="w-full max-w-3xl mx-auto animate-fade-in">
+                <div className="glassmorphism p-6 rounded-xl text-center">
+                  <div className="w-16 h-16 mx-auto flex items-center justify-center bg-green-100 rounded-full mb-4">
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-green-600"
+                    >
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-medium mb-2">Transfer Declined!</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Your file "{file?.name}" was declined by the user.
                   </p>
                   <Button
                     onClick={handleReset}
