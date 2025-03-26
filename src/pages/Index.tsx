@@ -104,7 +104,9 @@ const Index = () => {
     // Properly close existing peer connection
     if (peerManager?.peer instanceof Peer) {
       try {
-        peerManager.peer.close();
+        // Close all connections
+        peerManager.peer.disconnect()
+        peerManager.peer.destroy()
       } catch (error) {
         console.error("Error closing peer connection:", error);
       }
@@ -153,27 +155,27 @@ const Index = () => {
         let offset = 0;
         const startTime = Date.now();
 
+        let totalTransferred = 0;
         while (offset < file.size) {
           const chunk = file.slice(offset, offset + chunkSize);
-          await peerManager.sendData(file, await chunk.arrayBuffer(), (progress, transferred, total, speed, remaining) => {
-            console.log('transfer: ', progress, transferred, total, speed, remaining);
-            setTransferProgress(progress);
-            setTransferStats({ speed, remaining, transferred, total });
-          });
+          const chunkData = await chunk.arrayBuffer();
+          await peerManager.sendData(file, chunkData);
           offset += chunkSize;
+          totalTransferred = offset;
 
-          // const elapsedTime = (Date.now() - startTime) / 1000;
-          // const speed = offset / elapsedTime;
-          // const progress = Math.min(1, offset / file.size);
-          // const remaining = (file.size - offset) / speed;
+          const elapsedTime = (Date.now() - startTime) / 1000;
+          const speed = totalTransferred / elapsedTime;
+          const progress = Math.min(1, totalTransferred / file.size) * 100;
+          const remaining = (file.size - totalTransferred) / speed;
 
-          // setTransferProgress(progress);
-          // setTransferStats({
-          //   speed,
-          //   remaining: Math.max(0, remaining),
-          //   transferred: offset,
-          //   total: file.size
-          // });
+          console.log('transfer: ', progress, totalTransferred, file.size, speed, remaining);
+          setTransferProgress(progress);
+          setTransferStats({
+            speed,
+            remaining: Math.max(0, remaining),
+            transferred: totalTransferred,
+            total: file.size
+          });
         }
 
         // setConnectionState('completed');
