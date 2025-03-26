@@ -53,7 +53,6 @@ const Receive = () => {
         setConnectionState(state as ConnectionState);
         if (state === 'connected') {
           setPeerConnected(true);
-          setConnectionState('waiting');
         } else {
           setPeerConnected(false);
           if (state === 'failed' || state === 'closed' || state === 'disconnected') {
@@ -210,11 +209,11 @@ const Receive = () => {
           )}
 
           {/* Show interaction buttons when connected */}
-          {connectionState === 'connected' && peerConnected && (
+          { connectionState === 'connected' && 
             <div className="w-full max-w-3xl mx-auto text-center mt-4 space-x-4">
               <Button onClick={sendTestMessage}>Send Test Message</Button>
             </div>
-          )}
+          }
 
           {/* Show transfer progress if transferring */}
           {connectionState === 'completed' && transferStats && (
