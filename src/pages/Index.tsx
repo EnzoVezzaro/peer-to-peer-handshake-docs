@@ -67,9 +67,11 @@ const Index = () => {
           toast.info(`Received message: ${data}`);
         } if (typeof data === 'string' && data === `transfer-completed`) {
           setPeerResponse(`transfer-completed`)
+          setConnectionState('completed')
           toast.info(`User has Downloaded the File: ${data}`);
         } if (typeof data === 'string' && data === `transfer-declined`) { 
           setPeerResponse(`transfer-declined`)
+          setConnectionState('completed')
           toast.info(`User has Declined the File: ${data}`);
         } else if (data instanceof ArrayBuffer) {
           toast.info(`Received binary data: ${data.byteLength} bytes`);
@@ -185,7 +187,6 @@ const Index = () => {
           });
         }
 
-        // setConnectionState('completed');
         toast.success('File transfer completed successfully!');
       } catch (error) {
         console.error("File transfer failed:", error);
@@ -293,35 +294,34 @@ const Index = () => {
 
             {peerResponse === 'transfer-declined' && connectionState === 'completed' && (
               <div className="w-full max-w-3xl mx-auto animate-fade-in">
-                <div className="glassmorphism p-6 rounded-xl text-center">
-                  <div className="w-16 h-16 mx-auto flex items-center justify-center bg-green-100 rounded-full mb-4">
-                    <svg
-                      width="32"
-                      height="32"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-green-600"
-                    >
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-medium mb-2">Transfer Declined!</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Your file "{file?.name}" was declined by the user.
-                  </p>
-                  <Button
-                    onClick={handleReset}
-                    className="bg-[#E6F2FF] text-[#1786FB] hover:bg-[#D1E9FF] px-6 py-2.5 rounded-lg transition-colors duration-300 ease-in-out"
+              <div className="glassmorphism p-6 rounded-xl text-center">
+                <div className="w-16 h-16 mx-auto flex items-center justify-center bg-[#FFE5E5] rounded-full mb-4">
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-[#FF4444]"
                   >
-                    Share Another File
-                  </Button>
+                    <path d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
+                <h3 className="text-xl font-medium mb-2">Transfer Declined!</h3>
+                <p className="text-muted-foreground mb-4">
+                  Your file "{file?.name}" was declined by the user.
+                </p>
+                <Button
+                  onClick={handleReset}
+                  className="bg-[#E6F2FF] text-[#1786FB] hover:bg-[#D1E9FF] px-6 py-2.5 rounded-lg transition-colors duration-300 ease-in-out"
+                >
+                  Share Another File
+                </Button>
               </div>
+            </div>
             )}
           </div>
         )}
