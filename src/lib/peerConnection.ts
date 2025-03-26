@@ -31,8 +31,9 @@ export const initiatePeerConnection = (
   onFileRequest: (file: File) => void, // Keep for potential future use
   setFile: (file: File) => void,       // Keep for potential future use
   isInitiator: boolean,
-  roomId: string
-): { pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void } | null => {
+  roomId: string,
+  onTransferProgress?: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void
+): { pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void, sendFileInfo: (file: File) => void } | null => {
   // In a real implementation, we would create a WebRTC peer connection here
   // using WebRTC directly
 
@@ -58,23 +59,23 @@ export const initiatePeerConnection = (
     console.log(`ICE Connection State: ${pc.iceConnectionState}`);
     onConnectionStateChange(pc.iceConnectionState); // Report state change
     if (pc.iceConnectionState === 'connected') {
-        // Consider adding onPeerJoined here if appropriate
+      // Consider adding onPeerJoined here if appropriate
     } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
-        // Handle disconnection or failure
-        console.error(`ICE Connection State failed: ${pc.iceConnectionState}`);
-        // Optionally close the connection or attempt reconnection
+      // Handle disconnection or failure
+      console.error(`ICE Connection State failed: ${pc.iceConnectionState}`);
+      // Optionally close the connection or attempt reconnection
     }
   };
 
-   pc.onconnectionstatechange = () => {
+  pc.onconnectionstatechange = () => {
     console.log(`Connection State: ${pc.connectionState}`);
-     if (pc.connectionState === 'connected') {
-       onConnectionStateChange('connected');
-       onPeerJoined('WebRTC User'); // Assuming connection means peer joined
-     } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
-       onConnectionStateChange('disconnected');
-     }
-   };
+    if (pc.connectionState === 'connected') {
+      onConnectionStateChange('connected');
+      onPeerJoined('WebRTC User'); // Assuming connection means peer joined
+    } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+      onConnectionStateChange('disconnected');
+    }
+  };
 
   // --- Data Channel Handling ---
   const setupDataChannel = (channel: RTCDataChannel) => {
@@ -85,7 +86,7 @@ export const initiatePeerConnection = (
     dc.onopen = () => {
       console.log(`Data channel "${dc.label}" opened.`);
       // Connection is fully established when data channel is open
-      onConnectionStateChange('connected'); 
+      onConnectionStateChange('connected');
       onPeerJoined('WebRTC User'); // Or get name via signaling
     };
 
@@ -124,12 +125,12 @@ export const initiatePeerConnection = (
       .catch(error => console.error('Error creating offer:', error));
 
   } else {
-     // Receiver logic
-     pc.ondatachannel = (event) => {
-       console.log('Data channel received');
-       setupDataChannel(event.channel);
-     };
-     // Receiver logic moved to handleSignal below
+    // Receiver logic
+    pc.ondatachannel = (event) => {
+      console.log('Data channel received');
+      setupDataChannel(event.channel);
+    };
+    // Receiver logic moved to handleSignal below
   }
 
   // Function to handle incoming signals
@@ -137,89 +138,111 @@ export const initiatePeerConnection = (
     if (!pc) return; // Should not happen if initialized correctly
 
     try {
-        const signal = JSON.parse(signalString);
-        console.log('Received signal:', signal);
+      const signal = JSON.parse(signalString);
+      console.log('Received signal:', signal);
 
-        if (signal.type === 'offer' && !isInitiator) {
-            console.log('Received offer, setting remote description and creating answer...');
-            const offerDesc = new RTCSessionDescription({ type: 'offer', sdp: signal.sdp });
-            pc.setRemoteDescription(offerDesc)
-              .then(() => pc.createAnswer())
-              .then(answer => pc.setLocalDescription(answer))
-              .then(() => {
-                console.log('Answer created and set as local description. Sending answer...');
-                if (pc.localDescription) {
-                  sendSignal(JSON.stringify({ type: 'answer', sdp: pc.localDescription.sdp }));
-                }
-              })
-              .catch(error => console.error('Error handling offer:', error));
-
-        } else if (signal.type === 'answer' && isInitiator) {
-            console.log('Received answer, setting remote description...');
-            const answerDesc = new RTCSessionDescription({ type: 'answer', sdp: signal.sdp });
-            pc.setRemoteDescription(answerDesc)
-              .catch(error => console.error('Error setting remote description from answer:', error));
-
-        } else if (signal.type === 'candidate') {
-            console.log('Received ICE candidate, adding...');
-            if (signal.candidate) {
-                pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
-                  .catch(error => console.error('Error adding received ICE candidate:', error));
+      if (signal.type === 'offer' && !isInitiator) {
+        console.log('Received offer, setting remote description and creating answer...');
+        const offerDesc = new RTCSessionDescription({ type: 'offer', sdp: signal.sdp });
+        pc.setRemoteDescription(offerDesc)
+          .then(() => pc.createAnswer())
+          .then(answer => pc.setLocalDescription(answer))
+          .then(() => {
+            console.log('Answer created and set as local description. Sending answer...');
+            if (pc.localDescription) {
+              sendSignal(JSON.stringify({ type: 'answer', sdp: pc.localDescription.sdp }));
             }
-        } else {
-            console.warn('Received unknown signal type:', signal.type);
+          })
+          .catch(error => console.error('Error handling offer:', error));
+
+      } else if (signal.type === 'answer' && isInitiator) {
+        console.log('Received answer, setting remote description...');
+        const answerDesc = new RTCSessionDescription({ type: 'answer', sdp: signal.sdp });
+        pc.setRemoteDescription(answerDesc)
+          .catch(error => console.error('Error setting remote description from answer:', error));
+
+      } else if (signal.type === 'candidate') {
+        console.log('Received ICE candidate, adding...');
+        if (signal.candidate) {
+          pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
+            .catch(error => console.error('Error adding received ICE candidate:', error));
         }
+      } else {
+        console.warn('Received unknown signal type:', signal.type);
+      }
     } catch (error) {
-        console.error('Error parsing signal:', error);
+      console.error('Error parsing signal:', error);
     }
   };
 
   // Function to send data over the data channel
   const sendData = (data: string | ArrayBuffer) => {
-      if (dc && dc.readyState === 'open') {
-          console.log('Sending data:', data);
-          // Explicitly check the type before sending to satisfy TypeScript
-          if (typeof data === 'string') {
-              dc.send(data);
-          } else if (data instanceof ArrayBuffer) {
-              dc.send(data);
-          } else {
-              console.error("Unsupported data type for sending:", typeof data);
-          }
+    if (dc && dc.readyState === 'open') {
+      console.log('Sending data:', data);
+      // Explicitly check the type before sending to satisfy TypeScript
+      if (typeof data === 'string') {
+        dc.send(data);
+      } else if (data instanceof ArrayBuffer) {
+        dc.send(data);
       } else {
-          console.error("Data channel is not open or not initialized, cannot send data.");
-          // Optionally queue data or throw error
+        console.error("Unsupported data type for sending:", typeof data);
       }
+    } else {
+      console.error("Data channel is not open or not initialized, cannot send data.");
+      // Optionally queue data or throw error
+    }
   };
 
+  const updateTransferProgress = (progress: number, transferred: number, total: number, speed: number, remaining: number) => {
+    if (onTransferProgress) {
+      onTransferProgress(progress, transferred, total, speed, remaining);
+    }
+  };
+
+  const sendFileInfo = (file: File) => {
+    if (dc && dc.readyState === 'open') {
+      const fileInfo = {
+        type: 'file-info',
+        payload: {
+          name: file.name,
+          size: file.size,
+          type: file.type,
+        },
+      };
+      console.log('Sending file info:', fileInfo);
+      dc.send(JSON.stringify(fileInfo));
+    } else {
+      console.error("Data channel is not open, cannot send file info.");
+    }
+  };
 
   // Return the necessary objects/functions for external management
-  return { pc, handleSignal, sendData };
-};
+  return { pc, handleSignal, sendData, sendFileInfo };
+}
 
 // Class to handle file transfers with chunking
 export class FileTransfer {
   file: File;
   chunkSize: number;
-  onProgress: (progress: number) => void;
-  
-  constructor(file: File, onProgress: (progress: number) => void) {
+  onProgress: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void;
+
+  constructor(file: File, onProgress: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void) {
     this.file = file;
     this.chunkSize = 64 * 1024; // 64KB chunks
     this.onProgress = onProgress;
   }
-  
+
   // Get the total number of chunks for this file
   getTotalChunks(): number {
     return Math.ceil(this.file.size / this.chunkSize);
   }
-  
+
   // Read a specific chunk from the file
   async readChunk(chunkIndex: number): Promise<ArrayBuffer> {
     const start = chunkIndex * this.chunkSize;
     const end = Math.min(start + this.chunkSize, this.file.size);
     const blob = this.file.slice(start, end);
-    
+
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as ArrayBuffer);

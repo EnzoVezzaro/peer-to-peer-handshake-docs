@@ -29,7 +29,7 @@ const Index = () => {
   const [peerConnected, setPeerConnected] = useState<boolean>(false);
   const [signalToSend, setSignalToSend] = useState<string>(''); // Renamed from sdpOffer
   const [receivedSignal, setReceivedSignal] = useState<string>(''); // State for incoming signal
-  const [peerManager, setPeerManager] = useState<{ pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void } | null>(null); // State for peer connection manager
+  const [peerManager, setPeerManager] = useState<{ pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void, sendFileInfo: (file: File) => void } | null>(null); // State for peer connection manager
 
   // Handle file selection (Initiator)
   const handleFileSelect = (selectedFile: File) => {
@@ -73,7 +73,11 @@ const Index = () => {
       },
       setFile, // setFile (placeholder)
       true,    // isInitiator
-      roomId
+      roomId,
+      (progress, transferred, total, speed, remaining) => {
+        setTransferProgress(progress);
+        setTransferStats({ speed, remaining, transferred, total });
+      }
     );
 
     if (manager) {
@@ -236,14 +240,42 @@ const Index = () => {
                  <Button onClick={sendTestMessage}>Send Test Message</Button>
                  {/* Add button to initiate actual file transfer later */}
                  <Button
-                   onClick={() => {
-                     // TODO: Implement actual file transfer initiation
-                     toast.info("Actual file transfer not implemented yet.");
-                     // setConnectionState('transferring'); // Example state change
+                   onClick={async () => {
+                     if (file && peerManager && connectionState === 'connected') {
+                       console.log("Starting file transfer...");
+                       setConnectionState('transferring');
+
+                       // Send file info
+                       peerManager.sendFileInfo(file);
+
+                       const chunkSize = 16384; // Adjust chunk size as needed
+                       let offset = 0;
+
+                       while (offset < file.size) {
+                         const chunk = file.slice(offset, offset + chunkSize);
+                         peerManager.sendData(await chunk.arrayBuffer());
+                         offset += chunkSize;
+
+                         const progress = Math.min(1, offset / file.size);
+                         const transferred = offset;
+                         const total = file.size;
+                         // Basic transfer stats (improve as needed)
+                         const speed = 1000; // placeholder
+                         const remaining = (total - transferred) / speed; // placeholder
+
+                         setTransferProgress(progress);
+                         setTransferStats({ speed, remaining, transferred, total });
+                       }
+
+                       setConnectionState('completed');
+                       toast.success('File transfer completed successfully!');
+                     } else {
+                       toast.warning("Cannot start transfer: Not connected or no file selected.");
+                     }
                    }}
                    className="btn-primary"
                  >
-                   Start File Transfer (WIP)
+                   Start File Transfer
                  </Button>
                </div>
              )}
