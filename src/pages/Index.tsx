@@ -22,9 +22,9 @@ type TransferStats = {
 type PeerManager = {
   peer: Peer;
   handleSignal: (signal: string) => void;
-  sendData: (data: DataMessage) => void;
-  sendFileInfo: (file: File) => void;
-};
+      sendData: (file: File, data: DataMessage, onTransferProgress?: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void) => void;
+      sendFileInfo: (file: File) => void;
+    };
 
 const Index = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -78,6 +78,7 @@ const Index = () => {
       roomId,
       undefined,
       (progress, transferred, total, speed, remaining) => {
+        console.log('tranfer: ', progress, transferred, total, speed, remaining);
         setTransferProgress(progress);
         setTransferStats({ speed, remaining, transferred, total });
       }
@@ -85,7 +86,7 @@ const Index = () => {
 
     if (manager) {
       setPeerManager({
-        peer: manager.peer, 
+        peer: manager.peer,
         handleSignal: manager.handleSignal,
         sendData: manager.sendData,
         sendFileInfo: manager.sendFileInfo,
@@ -101,7 +102,7 @@ const Index = () => {
   // Reset the state
   const handleReset = () => {
     // Properly close existing peer connection
-    if (peerManager?.peer) {
+    if (peerManager?.peer instanceof Peer) {
       try {
         peerManager.peer.close();
       } catch (error) {
@@ -127,7 +128,7 @@ const Index = () => {
     if (peerManager && connectionState === 'connected') {
       const message = `Hello from sender! ${new Date().toLocaleTimeString()}`;
       try {
-        await peerManager.sendData(message);
+        await peerManager.sendData(file!, message);
         toast.success("Test message sent!");
       } catch (error) {
         console.error("Failed to send test message:", error);
@@ -144,7 +145,7 @@ const Index = () => {
       try {
         console.log("Starting file transfer...");
         setConnectionState('transferring');
-        
+
         // Send file info first
         await peerManager.sendFileInfo(file);
 
@@ -154,24 +155,28 @@ const Index = () => {
 
         while (offset < file.size) {
           const chunk = file.slice(offset, offset + chunkSize);
-          await peerManager.sendData(await chunk.arrayBuffer());
+          await peerManager.sendData(file, await chunk.arrayBuffer(), (progress, transferred, total, speed, remaining) => {
+            console.log('transfer: ', progress, transferred, total, speed, remaining);
+            setTransferProgress(progress);
+            setTransferStats({ speed, remaining, transferred, total });
+          });
           offset += chunkSize;
 
-          const elapsedTime = (Date.now() - startTime) / 1000;
-          const speed = offset / elapsedTime;
-          const progress = Math.min(1, offset / file.size);
-          const remaining = (file.size - offset) / speed;
+          // const elapsedTime = (Date.now() - startTime) / 1000;
+          // const speed = offset / elapsedTime;
+          // const progress = Math.min(1, offset / file.size);
+          // const remaining = (file.size - offset) / speed;
 
-          setTransferProgress(progress);
-          setTransferStats({ 
-            speed, 
-            remaining: Math.max(0, remaining), 
-            transferred: offset, 
-            total: file.size 
-          });
+          // setTransferProgress(progress);
+          // setTransferStats({
+          //   speed,
+          //   remaining: Math.max(0, remaining),
+          //   transferred: offset,
+          //   total: file.size
+          // });
         }
 
-        setConnectionState('completed');
+        // setConnectionState('completed');
         toast.success('File transfer completed successfully!');
       } catch (error) {
         console.error("File transfer failed:", error);
@@ -186,7 +191,7 @@ const Index = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      
+
       <main className="flex-1 container mx-auto px-4 py-8 flex flex-col items-center justify-center gap-6">
         <div className="text-center max-w-2xl mb-8 animate-slide-in">
           <h1 className="text-4xl font-medium tracking-tight mb-3">
@@ -197,28 +202,28 @@ const Index = () => {
             Secure, private, and incredibly simple.
           </p>
         </div>
-        
+
         {!file && (
           <FileUpload onFileSelect={handleFileSelect} setFile={setFile} />
         )}
-        
+
         {file && (
           <div className="w-full space-y-6">
             {connectionState !== 'completed' && (
               <ShareLink link={sharingLink} signalData={signalToSend} />
             )}
 
-            <ConnectionStatus 
-              state={connectionState} 
+            <ConnectionStatus
+              state={connectionState}
               peerName={peerConnected ? peerName : ''}
               isPeerConnected={peerConnected}
             />
-            
+
             {showFilePreview && file && (
               <FilePreview
                 file={file}
-                onAccept={() => {}}
-                onDecline={() => {}}
+                onAccept={() => { }}
+                onDecline={() => { }}
               />
             )}
 
@@ -233,30 +238,30 @@ const Index = () => {
             )}
 
             {connectionState === 'connected' && peerConnected && (
-               <div className="w-full max-w-3xl mx-auto text-center mt-4 space-x-4">
-                 <Button onClick={sendTestMessage}>Send Test Message</Button>
-                 <Button
-                   onClick={startFileTransfer}
-                   className="btn-primary"
-                 >
-                   Start File Transfer
-                 </Button>
-               </div>
-             )}
+              <div className="w-full max-w-3xl mx-auto text-center mt-4 space-x-4">
+                <Button onClick={sendTestMessage}>Send Test Message</Button>
+                <Button
+                  onClick={startFileTransfer}
+                  className="btn-primary"
+                >
+                  Start File Transfer
+                </Button>
+              </div>
+            )}
 
             {connectionState === 'completed' && (
               <div className="w-full max-w-3xl mx-auto animate-fade-in">
                 <div className="glassmorphism p-6 rounded-xl text-center">
                   <div className="w-16 h-16 mx-auto flex items-center justify-center bg-green-100 rounded-full mb-4">
-                    <svg 
-                      width="32" 
-                      height="32" 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                       className="text-green-600"
                     >
                       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -267,7 +272,7 @@ const Index = () => {
                   <p className="text-muted-foreground mb-4">
                     Your file "{file?.name}" was successfully transferred.
                   </p>
-                  <Button 
+                  <Button
                     onClick={handleReset}
                     className="btn-primary mx-auto"
                   >

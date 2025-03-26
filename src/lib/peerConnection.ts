@@ -33,7 +33,8 @@ export const initiatePeerConnection = (
 ): {
   peer: Peer;
   connectToPeer: (receiverPeerId: string) => void; // Function to initiate connection from initiator
-  sendData: (data: string | ArrayBuffer) => Promise<void>;
+  sendData: (file: File, data: string | ArrayBuffer, 
+  onTransferProgress?: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void) => Promise<void>;
   sendFileInfo: (file: File) => void;
   handleSignal: (signal: string) => void;
 } | null => {
@@ -103,16 +104,36 @@ export const initiatePeerConnection = (
   };
 
   // Function to send data
-  const sendData = (data: string | ArrayBuffer): Promise<void> => {
+  const sendData = (file: File, data: string | ArrayBuffer, onTransferProgress?: (progress: number, transferred: number, total: number, speed: number, remaining: number) => void): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
       if (connection && connection.open) {
-        // console.log('Sending data:', data); // Reduce log noise
         try {
-          connection.send(data);
-          // Note: PeerJS doesn't provide a callback or promise to indicate when the send operation is complete.
-          // The resolve() function is being called immediately after connection.send(data), which might not guarantee that the data is actually sent.
-          // This might need further investigation.
-          resolve();
+          if (file && onTransferProgress) {
+            const transfer = new FileTransfer(file, onTransferProgress);
+            const totalChunks = transfer.getTotalChunks();
+            let transferredBytes = 0;
+            const startTime = Date.now();
+
+            (async () => {
+              for (let i = 0; i < totalChunks; i++) {
+                const chunk = await transfer.readChunk(i);
+                connection.send(chunk);
+                transferredBytes += chunk.byteLength;
+
+                const currentTime = Date.now();
+                const elapsedTime = (currentTime - startTime) / 1000; // in seconds
+                const speed = transferredBytes / elapsedTime; // bytes per second
+                const remainingBytes = file.size - transferredBytes;
+                const remainingTime = remainingBytes / speed;
+
+                const progress = transferredBytes / file.size * 100;
+                onTransferProgress(progress, transferredBytes, file.size, speed, remainingTime);
+              }
+              resolve();
+            })();
+          } else {
+            resolve();
+          }
         } catch (error) {
           console.error('Failed to send data:', error);
           reject(error instanceof Error ? error : new Error('Failed to send data'));
