@@ -52,7 +52,7 @@ export const initiatePeerConnection = (
       console.warn("Already connected. Ignoring connect attempt.");
       return;
     }
-    console.log(`Attempting to connect to peer: ${targetPeerId}`);
+    // console.(`Attempting to connect to peer: ${targetPeerId}`);
     try {
       const newConnection = peer.connect(targetPeerId, {
         reliable: true,
@@ -77,23 +77,23 @@ export const initiatePeerConnection = (
     }
 
     connection = dataConnection;
-    console.log(`Setting up data connection with peer: ${connection.peer}`);
+    // console.(`Setting up data connection with peer: ${connection.peer}`);
 
     connection.on('open', () => {
-      console.log(`Data channel open with ${connection.peer}`);
+      // console.(`Data channel open with ${connection.peer}`);
       onConnectionStateChange('connected');
       onPeerJoined(connection.peer); // Use the actual peer ID as the name
     });
 
     connection.on('data', (data: string | ArrayBuffer) => {
-      console.log(`Data received from ${connection.peer}:`, data);
-      console.log("Received data:", data); // ADDED LOG
-      console.log("Data received on 'data' event:", data); // ADDED LOG
+      // console.log(`Data received from ${connection.peer}:`, data);
+      // console.log("Received data:", data); // ADDED LOG
+      // console.log("Data received on 'data' event:", data); // ADDED LOG
       onDataReceived(data);
     });
 
     connection.on('close', () => {
-      console.log(`Data channel closed with ${connection.peer}`);
+      // console.log(`Data channel closed with ${connection.peer}`);
       onConnectionStateChange('disconnected');
       connection = null; // Reset connection object
     });
@@ -110,8 +110,8 @@ export const initiatePeerConnection = (
     return new Promise<void>((resolve, reject) => {
       if (connection && connection.open) {
         try {
-          console.log("Connection status:", connection, connection?.open); // ADDED LOG
-          console.log("Sending data:", data); // ADDED LOG
+          // console.log("Connection status:", connection, connection?.open); // ADDED LOG
+          // console.log("Sending data:", data); // ADDED LOG
           if (file && onTransferProgress) {
             const transfer = new FileTransfer(file, onTransferProgress);
             const totalChunks = transfer.getTotalChunks();
@@ -136,7 +136,7 @@ export const initiatePeerConnection = (
               resolve();
             })();
           } else {
-            console.log("Sending data (no file):", data);
+            // console.log("Sending data (no file):", data);
             connection.send(data);
             resolve();
           }
@@ -162,7 +162,7 @@ export const initiatePeerConnection = (
           type: file.type,
         },
       };
-      console.log('Sending file info:', fileInfo);
+      // console.('Sending file info:', fileInfo);
       connection.send(JSON.stringify(fileInfo));
     } else {
       console.error("Data channel is not open, cannot send file info.");
@@ -179,24 +179,24 @@ export const initiatePeerConnection = (
     peer = new Peer(peerOptions); // Initiator gets ID from server
 
     peer.on('open', (id) => {
-      console.log('PeerJS initialized. My Peer ID is:', id);
+      // console.('PeerJS initialized. My Peer ID is:', id);
       onPeerIdGenerated(id); // Notify UI of the generated ID
 
       if (!isInitiator && initiatorPeerId) {
         // Receiver automatically connects to the initiator ID from the URL
-        console.log(`Receiver: Automatically connecting to initiator (${initiatorPeerId})`);
-        console.log("Receiver: isInitiator is", isInitiator);
+        // console.(`Receiver: Automatically connecting to initiator (${initiatorPeerId})`);
+        // console.("Receiver: isInitiator is", isInitiator);
         connectToPeer(initiatorPeerId);
-        console.log("connectToPeer called");
+        // console.("connectToPeer called");
       } else if (isInitiator) {
-        console.log("Initiator: Waiting for receiver's Peer ID to connect.");
+        // console.("Initiator: Waiting for receiver's Peer ID to connect.");
         onConnectionStateChange('waiting'); // New state for initiator waiting
       }
     });
 
     // Handle incoming connections (primarily for the initiator)
     peer.on('connection', (incomingConnection) => {
-      console.log(`Incoming connection from ${incomingConnection.peer}`);
+      // console.(`Incoming connection from ${incomingConnection.peer}`);
       // If already connected, maybe reject or handle multiple connections?
       if (connection && connection.open) {
           console.warn(`Already connected to ${connection.peer}. Rejecting connection from ${incomingConnection.peer}`);
@@ -209,13 +209,13 @@ export const initiatePeerConnection = (
     });
 
     peer.on('disconnected', () => {
-      console.log('Peer disconnected from PeerServer.');
+      // console.('Peer disconnected from PeerServer.');
       onConnectionStateChange('disconnected');
       // Attempt to reconnect? PeerJS might do this automatically depending on config
     });
 
     peer.on('close', () => {
-      console.log('Peer connection closed.');
+      // console.('Peer connection closed.');
       onConnectionStateChange('disconnected');
       connection = null; // Ensure connection object is cleared
     });
@@ -235,7 +235,7 @@ export const initiatePeerConnection = (
 
     // Return the necessary objects/functions for external management
     const handleSignal = (signal: string) => {
-      console.log("Handling signal:", signal); // ADDED LOG
+      // console.("Handling signal:", signal); // ADDED LOG
       if (!isInitiator) {
         connectToPeer(signal);
       }

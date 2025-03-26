@@ -9,16 +9,19 @@ interface TransferProgressProps {
   totalBytes?: number;
 }
 
-const TransferProgress: React.FC<TransferProgressProps> = ({ 
-  progress, 
+const TransferProgress: React.FC<TransferProgressProps> = ({
+  progress,
   transferSpeed,
   timeRemaining,
   transferredBytes,
-  totalBytes
+  totalBytes,
 }) => {
   const formatSpeed = (bytesPerSecond?: number): string => {
+    if (progress === 100 && !bytesPerSecond) {
+      return 'Done';
+    }
     if (!bytesPerSecond) return 'Calculating...';
-    
+
     if (bytesPerSecond < 1024) {
       return `${bytesPerSecond.toFixed(1)} B/s`;
     } else if (bytesPerSecond < 1024 * 1024) {
@@ -29,8 +32,11 @@ const TransferProgress: React.FC<TransferProgressProps> = ({
   };
 
   const formatTime = (seconds?: number): string => {
+    if (progress === 100 && !seconds) {
+      return 'Done';
+    }
     if (!seconds) return 'Calculating...';
-    
+
     if (seconds < 60) {
       return `${Math.ceil(seconds)} seconds remaining`;
     } else if (seconds < 3600) {

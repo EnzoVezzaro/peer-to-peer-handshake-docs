@@ -46,7 +46,7 @@ const Index = () => {
 
     const manager = initiatePeerConnection(
       (state: ConnectionState) => {
-        console.log("Connection state changed:", state);
+        // console.log("Connection state changed:", state);
         setConnectionState(state);
         if (state === 'connected') {
           setPeerConnected(true);
@@ -55,14 +55,14 @@ const Index = () => {
         }
       },
       (peerId) => {
-        console.log("Peer ID generated:", peerId);
+        // console.log("Peer ID generated:", peerId);
         // Optionally generate and set sharing link
         const link = createSharingLink(roomId);
         setSharingLink(link);
         setSignalToSend(peerId); // Assuming peerId contains the initial connection signal
       },
       async (data: DataMessage) => {
-        console.log('Data received via data channel:', data);
+        // console.log('Data received via data channel:', data);
         if (typeof data === 'string' && data !== `transfer-completed`) {
           toast.info(`Received message: ${data}`);
         } if (typeof data === 'string' && data === `transfer-completed`) {
@@ -87,7 +87,7 @@ const Index = () => {
       roomId,
       undefined,
       (progress, transferred, total, speed, remaining) => {
-        console.log('tranfer: ', progress, transferred, total, speed, remaining);
+        // console.log('tranfer: ', progress, transferred, total, speed, remaining);
         setTransferProgress(progress);
         setTransferStats({ speed, remaining, transferred, total });
       }
@@ -154,7 +154,7 @@ const Index = () => {
   const startFileTransfer = async () => {
     if (file && peerManager && connectionState === 'connected') {
       try {
-        console.log("Starting file transfer...");
+        // console.log("Starting file transfer...");
         setConnectionState('transferring');
 
         // Send file info first
@@ -168,16 +168,16 @@ const Index = () => {
         while (offset < file.size) {
           const chunk = file.slice(offset, offset + chunkSize);
           const chunkData = await chunk.arrayBuffer();
-          await peerManager.sendData(file, chunkData);
           offset += chunkSize;
           totalTransferred = offset;
+          await peerManager.sendData(file, chunkData);
 
           const elapsedTime = (Date.now() - startTime) / 1000;
           const speed = totalTransferred / elapsedTime;
           const progress = Math.min(1, totalTransferred / file.size) * 100;
           const remaining = (file.size - totalTransferred) / speed;
 
-          console.log('transfer: ', progress, totalTransferred, file.size, speed, remaining);
+          // console.log('transfer: ', progress, totalTransferred, file.size, speed, remaining);
           setTransferProgress(progress);
           setTransferStats({
             speed,

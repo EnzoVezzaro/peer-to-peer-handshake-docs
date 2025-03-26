@@ -42,14 +42,14 @@ const Receive = () => {
       return;
     }
 
-    console.log('Initializing receiver for room:', roomId);
+    // console.('Initializing receiver for room:', roomId);
     setConnectionState('connecting');
 
     const initiatorPeerId = searchParams.get('signal');
 
     const manager = initiatePeerConnection(
       (state) => {
-        console.log("Connection state changed:", state);
+        // console.("Connection state changed:", state);
         setConnectionState(state as ConnectionState);
         if (state === 'connected') {
           setPeerConnected(true);
@@ -64,12 +64,12 @@ const Receive = () => {
         // Receiver doesn't send a signal, so this is a no-op
       },
       (data) => {
-        console.log('Data received via data channel:', data);
+        // console.('Data received via data channel:', data);
         if (typeof data === 'string') {
           try {
             const message = JSON.parse(data);
             if (message.type === 'file-info') {
-              console.log('Received file info:', message.payload);
+              // console.('Received file info:', message.payload);
               let mockFile: File;
               if (message.payload.size) {
                 try {
@@ -93,13 +93,13 @@ const Receive = () => {
             toast.info(`Received text: ${data}`);
           }
         } else {
-          console.log(`Received binary data: ${data.byteLength} bytes`);
+          // console.(`Received binary data: ${data.byteLength} bytes`);
           setReceivedFileChunks(prev => [...prev, data]);
           setReceivedBytes(prev => {
             const newReceivedBytes = prev + data.byteLength;
-            console.log(`Received bytes: ${newReceivedBytes} / ${totalBytes}`);
+            // console.(`Received bytes: ${newReceivedBytes} / ${totalBytes}`);
             if (totalBytes > 0 && newReceivedBytes >= totalBytes) {
-              console.log('File transfer complete!');
+              // console.('File transfer complete!');
               setConnectionState('completed');
             }
             return newReceivedBytes;
@@ -125,7 +125,7 @@ const Receive = () => {
     }
 
     return () => {
-      console.log("Cleaning up peer connection for receiver.");
+      // console.("Cleaning up peer connection for receiver.");
       setPeerManager(null);
       if (receivedFileUrl) {
         URL.revokeObjectURL(receivedFileUrl);
