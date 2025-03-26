@@ -10,6 +10,7 @@ interface ShareLinkProps {
 const ShareLink: React.FC<ShareLinkProps> = ({ link, signalData }) => {
   const [isLinkCopied, setIsLinkCopied] = useState(false);
   const linkInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(true)
 
   const handleCopyLink = () => {
     if (linkInputRef.current) {
@@ -35,6 +36,12 @@ const ShareLink: React.FC<ShareLinkProps> = ({ link, signalData }) => {
   const encodedSignalData = encodeURIComponent(signalData);
   const shareableLink = `${link}?signal=${encodedSignalData}`;
 
+  useEffect(()=>{
+    if (shareableLink && encodedSignalData){
+      setLoading(false);
+    }
+  }, [shareableLink, encodedSignalData])
+
   return (
     <div className="w-full max-w-3xl mx-auto animate-fade-in space-y-4">
       <div className="glassmorphism p-6 rounded-xl">
@@ -47,7 +54,7 @@ const ShareLink: React.FC<ShareLinkProps> = ({ link, signalData }) => {
           <input
             ref={linkInputRef}
             type="text"
-            value={shareableLink}
+            value={loading ? 'Loading...' : shareableLink}
             readOnly
             className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
