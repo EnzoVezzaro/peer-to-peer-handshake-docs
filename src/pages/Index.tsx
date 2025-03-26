@@ -318,9 +318,11 @@ const Index = () => {
 
       <footer className="py-6 border-t border-border">
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} HandShare. All rights reserved.
-          </p>
+          <a href='www.enzovezzaro.com' target='_blank'>
+            <p className="text-sm text-muted-foreground">
+              &copy; {new Date().getFullYear()} Enzo Vezzaro. Made with 💚.
+            </p>
+          </a>
           <div className="flex gap-4">
             <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Terms
