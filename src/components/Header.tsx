@@ -13,9 +13,7 @@ const Header: React.FC = () => {
           <h1 className="text-2xl font-medium tracking-tight">HandShare</h1>
         </div>
         <nav className="hidden md:flex items-center gap-8">
-          <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How it works</a>
-          <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">About</a>
-          <a href="#" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Privacy</a>
+          <a href="https://medium.com/@enzovezzaro/vibe-coding-adventures-day-6-p2p-handshake-v1-v-91aed304368b" target='_blank' className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">How it works</a>
         </nav>
       </div>
     </header>
