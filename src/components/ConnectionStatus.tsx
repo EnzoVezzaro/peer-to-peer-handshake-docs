@@ -1,7 +1,7 @@
 
 import React from 'react';
 
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'waiting' | 'transferring' | 'completed' | 'error';
+export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'waiting' | 'confirming' | 'transferring' | 'completed' | 'error'; // Added 'confirming'
 
 interface ConnectionStatusProps {
   state: ConnectionState;
@@ -22,19 +22,20 @@ const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ state, peerName, is
         return {
           color: 'bg-green-500',
           text: 'Connected',
-          description: isPeerConnected ? `Connected to ${peerName || 'peer'}! Waiting for file...` : `Connected to ${peerName || 'peer'}`
+          description: isPeerConnected ? `Connected to ${peerName || 'peer'}! Waiting for file info...` : `Connected to ${peerName || 'peer'}` // Updated description
         };
-      case 'waiting':
+      case 'waiting': // State when sender is waiting for receiver to accept
         return {
-          color: 'bg-blue-400',
-          text: 'Waiting for Confirmation',
+          color: 'bg-yellow-500', // Changed color
+          text: 'Waiting for Acceptance',
           description: 'Waiting for recipient to accept the file transfer...'
         };
-      case 'waiting':
+      // Removed duplicate 'waiting' case
+      case 'confirming': // State when receiver needs to confirm
         return {
-          color: 'bg-blue-400',
-          text: 'Waiting for Confirmation',
-          description: 'Waiting for recipient to accept the file transfer...'
+            color: 'bg-purple-500', // Added color
+            text: 'Confirm Transfer',
+            description: 'Please confirm or decline the incoming file transfer.'
         };
       case 'transferring':
         return {

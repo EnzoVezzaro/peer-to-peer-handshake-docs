@@ -6,7 +6,6 @@ import * as process from "process";
 global.process = process;
 
 import { nanoid } from 'nanoid';
-import Peer from 'simple-peer';
 
 // Define a unique room ID for the connection
 export const generateRoomId = (): string => {
@@ -23,73 +22,179 @@ export const fileToArrayBuffer = (file: File): Promise<ArrayBuffer> => {
   });
 };
 
-// Mock implementation
+// WebRTC implementation
 export const initiatePeerConnection = (
   onConnectionStateChange: (state: string) => void,
-  onData: (data: any) => void,
+  sendSignal: (signal: string) => void, // Renamed from onData - sends signals OUT
+  onDataReceived: (data: string | ArrayBuffer) => void, // Callback for received data channel messages
   onPeerJoined: (peerName: string) => void,
-  onFileRequest: (file: File) => void,
-  setFile: (file: File) => void,
+  onFileRequest: (file: File) => void, // Keep for potential future use
+  setFile: (file: File) => void,       // Keep for potential future use
   isInitiator: boolean,
-  roomId: string,
-  sdpOffer?: string
-) => {
+  roomId: string
+): { pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void } | null => {
   // In a real implementation, we would create a WebRTC peer connection here
-  // using simple-peer or a similar library
-  
-  let currentFile: File | null = null;
+  // using WebRTC directly
 
-  setFile = (file: File) => {
-    currentFile = file;
+  const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+  const pc = new RTCPeerConnection(configuration); // Changed 'let' to 'const'
+  let dc: RTCDataChannel | null = null; // Data channel - needs to be let as it's assigned later
+
+  console.log(`Initiating Peer Connection: initiator=${isInitiator}, roomId=${roomId}`);
+
+  // --- ICE Candidate Handling ---
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      console.log('Sending ICE candidate:', event.candidate);
+      // Send the candidate to the other peer via the signaling server/mechanism
+      sendSignal(JSON.stringify({ type: 'candidate', candidate: event.candidate })); // Use sendSignal
+    } else {
+      console.log('All ICE candidates have been sent');
+    }
+  };
+
+  // --- Connection State Handling ---
+  pc.oniceconnectionstatechange = () => {
+    console.log(`ICE Connection State: ${pc.iceConnectionState}`);
+    onConnectionStateChange(pc.iceConnectionState); // Report state change
+    if (pc.iceConnectionState === 'connected') {
+        // Consider adding onPeerJoined here if appropriate
+    } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
+        // Handle disconnection or failure
+        console.error(`ICE Connection State failed: ${pc.iceConnectionState}`);
+        // Optionally close the connection or attempt reconnection
+    }
+  };
+
+   pc.onconnectionstatechange = () => {
+    console.log(`Connection State: ${pc.connectionState}`);
+     if (pc.connectionState === 'connected') {
+       onConnectionStateChange('connected');
+       onPeerJoined('WebRTC User'); // Assuming connection means peer joined
+     } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected' || pc.connectionState === 'closed') {
+       onConnectionStateChange('disconnected');
+     }
+   };
+
+  // --- Data Channel Handling ---
+  const setupDataChannel = (channel: RTCDataChannel) => {
+    dc = channel; // Changed 'let' to 'const' - Reverted: dc needs assignment
+    console.log(`Data channel "${dc.label}" setup.`);
+    dc.binaryType = 'arraybuffer';
+
+    dc.onopen = () => {
+      console.log(`Data channel "${dc.label}" opened.`);
+      // Connection is fully established when data channel is open
+      onConnectionStateChange('connected'); 
+      onPeerJoined('WebRTC User'); // Or get name via signaling
+    };
+
+    dc.onclose = () => {
+      console.log(`Data channel "${dc.label}" closed.`);
+      onConnectionStateChange('disconnected');
+    };
+
+    dc.onerror = (error) => {
+      console.error(`Data channel "${dc.label}" error:`, error);
+      onConnectionStateChange('error');
+    };
+
+    dc.onmessage = (event) => {
+      console.log(`Data channel message received:`, event.data);
+      onDataReceived(event.data); // Use onDataReceived
+    };
+  };
+
+  // --- Signaling Logic ---
+  if (isInitiator) {
+    console.log('Creating data channel');
+    const dataChannel = pc.createDataChannel(roomId || 'file-transfer-channel'); // Use roomId or a default name
+    setupDataChannel(dataChannel);
+
+    console.log('Creating offer');
+    pc.createOffer()
+      .then(offer => pc.setLocalDescription(offer))
+      .then(() => {
+        console.log('Offer created and set as local description. Sending offer...');
+        if (pc.localDescription) {
+          // Send the offer signal
+          sendSignal(JSON.stringify({ type: 'offer', sdp: pc.localDescription.sdp }));
+        }
+      })
+      .catch(error => console.error('Error creating offer:', error));
+
+  } else {
+     // Receiver logic
+     pc.ondatachannel = (event) => {
+       console.log('Data channel received');
+       setupDataChannel(event.channel);
+     };
+     // Receiver logic moved to handleSignal below
   }
 
-  const peer = new Peer({
-    initiator: isInitiator,
-    trickle: false,
-  });
+  // Function to handle incoming signals
+  const handleSignal = (signalString: string) => {
+    if (!pc) return; // Should not happen if initialized correctly
 
-  peer.on('signal', data => {
-    console.log('SIGNAL', JSON.stringify(data))
-    onData(JSON.stringify(data));
-    if (isInitiator) {
-      onData(JSON.stringify(data));
-    }
-  });
-
-  if (!isInitiator && sdpOffer) {
     try {
-      peer.signal(JSON.parse(sdpOffer));
+        const signal = JSON.parse(signalString);
+        console.log('Received signal:', signal);
+
+        if (signal.type === 'offer' && !isInitiator) {
+            console.log('Received offer, setting remote description and creating answer...');
+            const offerDesc = new RTCSessionDescription({ type: 'offer', sdp: signal.sdp });
+            pc.setRemoteDescription(offerDesc)
+              .then(() => pc.createAnswer())
+              .then(answer => pc.setLocalDescription(answer))
+              .then(() => {
+                console.log('Answer created and set as local description. Sending answer...');
+                if (pc.localDescription) {
+                  sendSignal(JSON.stringify({ type: 'answer', sdp: pc.localDescription.sdp }));
+                }
+              })
+              .catch(error => console.error('Error handling offer:', error));
+
+        } else if (signal.type === 'answer' && isInitiator) {
+            console.log('Received answer, setting remote description...');
+            const answerDesc = new RTCSessionDescription({ type: 'answer', sdp: signal.sdp });
+            pc.setRemoteDescription(answerDesc)
+              .catch(error => console.error('Error setting remote description from answer:', error));
+
+        } else if (signal.type === 'candidate') {
+            console.log('Received ICE candidate, adding...');
+            if (signal.candidate) {
+                pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
+                  .catch(error => console.error('Error adding received ICE candidate:', error));
+            }
+        } else {
+            console.warn('Received unknown signal type:', signal.type);
+        }
     } catch (error) {
-      console.error("Error signaling with SDP offer:", error);
+        console.error('Error parsing signal:', error);
     }
-  }
+  };
 
-  peer.on('connect', () => {
-    console.log('CONNECT')
-    onConnectionStateChange('connected');
-    onPeerJoined('Anonymous User');
-  })
+  // Function to send data over the data channel
+  const sendData = (data: string | ArrayBuffer) => {
+      if (dc && dc.readyState === 'open') {
+          console.log('Sending data:', data);
+          // Explicitly check the type before sending to satisfy TypeScript
+          if (typeof data === 'string') {
+              dc.send(data);
+          } else if (data instanceof ArrayBuffer) {
+              dc.send(data);
+          } else {
+              console.error("Unsupported data type for sending:", typeof data);
+          }
+      } else {
+          console.error("Data channel is not open or not initialized, cannot send data.");
+          // Optionally queue data or throw error
+      }
+  };
 
-  peer.on('data', data => {
-    console.log('data: ' + data)
-  })
 
-  peer.on('stream', stream => {
-    // got remote video stream, now let's show it in a video tag
-    console.log('stream')
-  })
-
-  peer.on('close', () => {
-    console.log('close')
-    onConnectionStateChange('disconnected');
-  })
-
-  peer.on('error', err => {
-    console.log('error', err)
-    onConnectionStateChange('error');
-  })
-  
-  return peer;
+  // Return the necessary objects/functions for external management
+  return { pc, handleSignal, sendData };
 };
 
 // Class to handle file transfers with chunking

@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react'; // Added useRef
+import { useParams, useNavigate } from 'react-router-dom'; // Removed useSearchParams
 import Header from '../components/Header';
 import ConnectionStatus, { ConnectionState } from '../components/ConnectionStatus';
 import TransferProgress from '../components/TransferProgress';
 import FilePreview from '../components/FilePreview';
 import { toast } from 'sonner';
 import { initiatePeerConnection } from '../lib/peerConnection';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea'; // Added Textarea
+import { Label } from '@/components/ui/label'; // Added Label
 
 const Receive = () => {
-  const { roomId } = useParams<{ roomId: string }>();
+  const { roomId } = useParams<{ roomId: string }>(); // Typed useParams
+  // const [searchParams, setSearchParams] = useSearchParams(); // Removed, not using URL params for signal
   const navigate = useNavigate();
   
   const [connectionState, setConnectionState] = useState<ConnectionState>('connecting');
@@ -16,15 +20,20 @@ const Receive = () => {
   const [incomingFile, setIncomingFile] = useState<File | null>(null);
   const [showFilePreview, setShowFilePreview] = useState<boolean>(false);
   const [transferProgress, setTransferProgress] = useState<number>(0);
-  const [transferStats, setTransferStats] = useState<{
+  const [transferStats, setTransferStats] = useState<{ // Keep for actual transfer
     speed: number;
     remaining: number;
     transferred: number;
     total: number;
   } | null>(null);
   const [peerConnected, setPeerConnected] = useState<boolean>(false);
-  const [sdpAnswer, setSdpAnswer] = useState<string>('');
-  const [sdpOffer, setSdpOffer] = useState<string>('');
+  const [signalToSend, setSignalToSend] = useState<string>(''); // Renamed from sdpAnswer
+  // const [sdpOffer, setSdpOffer] = useState<string>(searchParams.get("sdpOffer")); // Removed
+  // const [currentConnection, setCurrentConnection] = useState<string>(null); // Removed
+  const [receivedSignal, setReceivedSignal] = useState<string>(''); // State for incoming signal
+  const [peerManager, setPeerManager] = useState<{ pc: RTCPeerConnection, handleSignal: (signal: string) => void, sendData: (data: string | ArrayBuffer) => void } | null>(null); // State for peer connection manager
+  const [isSignalCopied, setIsSignalCopied] = useState(false); // State for copy button
+  const signalTextareaRef = useRef<HTMLTextAreaElement>(null); // Ref for signal textarea
 
   useEffect(() => {
     if (!roomId) {
@@ -33,119 +42,116 @@ const Receive = () => {
       return;
     }
 
-    console.log('Connecting to room:', roomId);
+    console.log('Initializing receiver for room:', roomId);
+    setConnectionState('connecting'); // Initial state
 
-    try {
-      const url = new URL(window.location.href);
-      const params = new URLSearchParams(url.search);
-      let offer = params.get('sdpOffer');
-      if (offer) {
-        try {
-          offer = decodeURIComponent(offer);
-        } catch (e) {
-          console.error("Error decoding SDP offer:", e);
-        }
-        setSdpOffer(offer);
-      }
-    } catch (error) {
-      console.error('Error parsing URL:', error);
-    }
-    
     // Initialize peer connection as the receiver
-    const peerConnection = initiatePeerConnection(
-      (state) => setConnectionState(state as ConnectionState),
-      (data) => {
-        console.log('Received data:', data);
-        toast.success(data);
+    const manager = initiatePeerConnection(
+      (state) => { // onConnectionStateChange
+        console.log("Connection state changed:", state);
+        setConnectionState(state as ConnectionState);
+         if (state === 'connected') {
+           setPeerConnected(true);
+           // Don't automatically show file preview, wait for signal/message
+           // setShowFilePreview(true);
+           setConnectionState('waiting'); // Move to waiting after connected
+         } else {
+           setPeerConnected(false);
+           if (state === 'failed' || state === 'closed' || state === 'disconnected') {
+             toast.error(`Connection ${state}. Please try again.`);
+           }
+         }
       },
-      (name) => {
+      (signal) => { // sendSignal (captures answer/candidates)
+        console.log("Signal to send (Answer/Candidates):", signal);
+        setSignalToSend(prev => prev ? `${prev}\n${signal}` : signal);
+      },
+      (data) => { // onDataReceived
+        console.log('Data received via data channel:', data);
+        // Handle incoming data (e.g., file info, chat)
+        if (typeof data === 'string') {
+          try {
+            const message = JSON.parse(data);
+            if (message.type === 'file-info') {
+              // This assumes sender sends file info as JSON
+              console.log('Received file info:', message.payload);
+              // Create a mock File object for preview
+              const mockFile = new File([], message.payload.name, { type: message.payload.type, lastModified: Date.now() });
+              // @ts-expect-error - Add size property if available (Fixed comment)
+              if (message.payload.size) mockFile.size = message.payload.size;
+              setIncomingFile(mockFile);
+              setShowFilePreview(true);
+              setConnectionState('confirming'); // State for showing preview
+            } else {
+               toast.info(`Received message: ${data}`);
+            }
+          } catch (e) {
+             toast.info(`Received text: ${data}`); // Not JSON, treat as plain text
+          }
+        } else {
+          // Handle binary data (ArrayBuffer) - likely file chunks
+          toast.info(`Received binary data: ${data.byteLength} bytes`);
+          // TODO: Implement logic to reassemble file chunks
+        }
+      },
+      (name) => { // onPeerJoined
         setPeerName(name);
-        setPeerConnected(true);
-        setConnectionState('waiting');
-        setShowFilePreview(true);
-        toast.success(`${name} connected! Waiting for file...`);
+        toast.success(`${name} connected!`);
       },
-      (fileInfo) => {
-        console.log('this file: ', fileInfo);
-        
-        // Only receivers should show the file preview and confirm
-        setIncomingFile(fileInfo);
-        setShowFilePreview(true);
+      (fileInfo) => { // onFileRequest (placeholder - receiver doesn't request)
+         console.log("File request received (should not happen for receiver):", fileInfo);
       },
-      () => {},
-      false,
-      roomId,
-      sdpOffer
+      () => {}, // setFile (placeholder - receiver gets file via data channel)
+      false,    // isInitiator
+      roomId
     );
 
-    peerConnection.on('signal', data => {
-      setSdpAnswer(JSON.stringify(data));
-      peerConnection.signal(data);
-    })
+    if (manager) {
+      setPeerManager(manager);
+    } else {
+      console.error("Failed to initialize peer connection.");
+      toast.error("Failed to initialize WebRTC connection.");
+      setConnectionState('error');
+    }
 
-    peerConnection.onData = (data) => {
-      console.log('Received data:', data);
-    };
-
-    // Connect to the sender
-    //peerConnection.signal(sdpOffer);
-
-    // Cleanup function
+    // Cleanup function for when component unmounts or roomId changes
     return () => {
-      peerConnection.destroy();
+      console.log("Cleaning up peer connection for receiver.");
+      manager?.pc?.close();
+      setPeerManager(null);
     };
-  }, [roomId, navigate, sdpOffer]);
+
+  }, [roomId, navigate]); // Removed sdpOffer dependency
 
   // Handle file transfer acceptance
   const handleAcceptTransfer = () => {
     if (!incomingFile) return;
-    
+
     setShowFilePreview(false);
-    setConnectionState('transferring');
+    setConnectionState('transferring'); // Or 'receiving'
+    toast.info(`Starting download for ${incomingFile.name}...`);
 
-    // Create a download link for the file
-    const url = URL.createObjectURL(incomingFile);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = incomingFile.name;
-    link.style.display = 'none';
-    document.body.appendChild(link);
+    // TODO: Implement actual file receiving logic
+    // - Send 'accept' message back to sender?
+    // - Prepare to receive file chunks via onDataReceived
+    // - Reassemble chunks into a Blob/File
+    // - Update progress based on received chunks
 
-    // Simulate file transfer with progress updates
-    let progress = 0;
-    const totalSize = incomingFile.size;
-    let transferred = 0;
-    const startTime = Date.now();
+    // Placeholder for download simulation/trigger
+    console.log("TODO: Implement actual file receiving and download.");
 
-    const transferInterval = setInterval(() => {
-      // Simulate transfer of chunks
-      const chunkSize = Math.min(512 * 1024, totalSize - transferred); // 512KB chunks
-      transferred += chunkSize;
-
-      const elapsedSeconds = (Date.now() - startTime) / 1000;
-      const speed = transferred / elapsedSeconds;
-      progress = (transferred / totalSize) * 100;
-      const remaining = (totalSize - transferred) / speed;
-
-      setTransferProgress(progress);
-      setTransferStats({
-        speed,
-        remaining,
-        transferred,
-        total: totalSize
-      });
-
-      if (transferred >= totalSize) {
-        clearInterval(transferInterval);
-        setTimeout(() => {
-          setConnectionState('completed');
-          toast.success('File transfer completed successfully!');
-        }, 500);
-        // Clean up the download link
-        URL.revokeObjectURL(url);
-        document.body.removeChild(link);
-      }
-    }, 200);
+    // Simulate completion for now
+    setTimeout(() => {
+       setConnectionState('completed');
+       toast.success('File transfer completed (simulated)!');
+       // Trigger download link creation after receiving all data
+       // const url = URL.createObjectURL(receivedFileBlob); // Assuming receivedFileBlob holds the data
+       // const link = document.createElement('a');
+       // link.href = url;
+       // link.download = incomingFile.name;
+       // link.click();
+       // URL.revokeObjectURL(url);
+     }, 3000);
   };
 
   // Handle file transfer decline
@@ -157,8 +163,49 @@ const Receive = () => {
 
   // Reset the state
   const handleReset = () => {
-    navigate('/');
+    navigate('/'); // Go back home after reset
   };
+
+  // Handle pasting/submitting the received signal (offer/candidates)
+  const handleReceivedSignalSubmit = () => {
+    if (peerManager && receivedSignal.trim()) {
+      console.log("Handling received signal (Offer/Candidates):", receivedSignal);
+      // Split potentially multiple JSON signals pasted together
+      receivedSignal.trim().split('\n').forEach(signalStr => {
+        if (signalStr.trim()) {
+          peerManager.handleSignal(signalStr.trim());
+        }
+      });
+      // Receiver should now generate an answer/candidates via sendSignal callback
+    } else {
+      toast.warning("Peer connection not ready or no signal pasted.");
+    }
+  };
+
+   // Handler for copying the generated signal data (answer/candidates)
+   const handleCopySignal = () => {
+     if (signalTextareaRef.current) {
+       navigator.clipboard.writeText(signalToSend).then(() => {
+         setIsSignalCopied(true);
+         toast.success('Signal data copied to clipboard!');
+         setTimeout(() => setIsSignalCopied(false), 3000);
+       }).catch(err => {
+         toast.error('Failed to copy signal data.');
+         console.error('Failed to copy signal data: ', err);
+       });
+     }
+   };
+
+   // Function to send a test message
+   const sendTestMessage = () => {
+     if (peerManager && connectionState === 'connected') {
+       const message = `Hello from receiver! ${new Date().toLocaleTimeString()}`;
+       peerManager.sendData(message);
+       toast.success("Test message sent!");
+     } else {
+       toast.warning("Cannot send message: Not connected.");
+     }
+   };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -182,20 +229,70 @@ const Receive = () => {
             peerName={peerConnected ? peerName : ''}
             isPeerConnected={peerConnected}
           />
+
+          {/* Input for Initiator's Signal */}
+           {peerManager && connectionState !== 'connected' && connectionState !== 'completed' && connectionState !== 'error' && (
+             <div className="w-full max-w-3xl mx-auto space-y-2 glassmorphism p-6 rounded-xl">
+               <Label htmlFor="received-signal">1. Paste Initiator's Signal (Offer/Candidates):</Label>
+               <Textarea
+                 id="received-signal"
+                 placeholder="Paste the signal code from the sender here..."
+                 value={receivedSignal}
+                 onChange={(e) => setReceivedSignal(e.target.value)}
+                 rows={4}
+                 className="bg-background/80 backdrop-blur-sm font-mono text-xs"
+               />
+               <Button onClick={handleReceivedSignalSubmit} disabled={!receivedSignal.trim() || !!signalToSend}>
+                 Connect to Peer
+               </Button>
+               {connectionState === 'connecting' && !signalToSend && <p className="text-xs text-muted-foreground">Connecting...</p>}
+             </div>
+           )}
+
+           {/* Display Receiver's Signal to Send Back */}
+           {signalToSend && connectionState !== 'connected' && connectionState !== 'completed' && (
+             <div className="w-full max-w-3xl mx-auto space-y-2 glassmorphism p-6 rounded-xl">
+               <Label htmlFor="signal-to-send">2. Send Your Signal Back to Initiator:</Label>
+               <Textarea
+                 ref={signalTextareaRef}
+                 id="signal-to-send"
+                 value={signalToSend}
+                 readOnly
+                 rows={4}
+                 className="bg-background/80 backdrop-blur-sm font-mono text-xs"
+               />
+               <Button
+                 onClick={handleCopySignal}
+                 className={`w-full sm:w-auto ${isSignalCopied ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                 variant="secondary"
+               >
+                 {isSignalCopied ? 'Copied!' : 'Copy Your Signal'}
+               </Button>
+                <p className="text-xs text-muted-foreground">Copy this signal (answer/candidates) and send it back to the initiator.</p>
+             </div>
+           )}
           
-          {/* Show file preview for confirming transfer - Only shown to receivers */}
-          {showFilePreview && incomingFile && (
-            <FilePreview 
-              file={incomingFile}
+          {/* Show file preview for confirming transfer */}
+          {showFilePreview && incomingFile && connectionState === 'confirming' && ( // Show only in confirming state
+            <FilePreview
+              file={incomingFile} // Use incomingFile
               onAccept={handleAcceptTransfer}
               onDecline={handleDeclineTransfer}
             />
           )}
+
+          {/* Show interaction buttons when connected */}
+           {connectionState === 'connected' && peerConnected && (
+             <div className="w-full max-w-3xl mx-auto text-center mt-4 space-x-4">
+               <Button onClick={sendTestMessage}>Send Test Message</Button>
+               {/* Button to manually trigger download if needed, or just wait */}
+             </div>
+           )}
           
           {/* Show transfer progress if transferring */}
           {connectionState === 'transferring' && transferStats && (
-            <TransferProgress 
-              progress={transferProgress} 
+            <TransferProgress
+              progress={transferProgress}
               transferSpeed={transferStats.speed}
               timeRemaining={transferStats.remaining}
               transferredBytes={transferStats.transferred}
@@ -203,7 +300,7 @@ const Receive = () => {
             />
           )}
           
-          {/* Show completion message if transfer is done */}
+          {/* Show completion message */}
           {connectionState === 'completed' && incomingFile && (
             <div className="w-full max-w-3xl mx-auto animate-fade-in">
               <div className="glassmorphism p-6 rounded-xl text-center">
@@ -232,12 +329,13 @@ const Receive = () => {
                   className="btn-primary mx-auto">
                   Return Home
                 </button>
-                <a
-                  href={incomingFile ? URL.createObjectURL(incomingFile) : ''}
-                  download={incomingFile ? incomingFile.name : ''}
-                  className="btn-primary mx-auto mt-4">
+                {/* Download button might be added here after actual receive */}
+                {/* <a
+                  href={receivedFileUrl} // State variable holding the blob URL
+                  download={incomingFile.name}
+                  className="btn-secondary mx-auto mt-4">
                   Download File
-                </a>
+                </a> */}
               </div>
             </div>
           )}
