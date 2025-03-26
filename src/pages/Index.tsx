@@ -318,9 +318,9 @@ const Index = () => {
 
       <footer className="py-6 border-t border-border">
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <a href='www.enzovezzaro.com' target='_blank'>
+          <a href='https://enzovezzaro.com' target='_blank'>
             <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} Enzo Vezzaro. Made with 💚.
+              &copy; {new Date().getFullYear()} Enzo Vezzaro 👨🏽‍💻 Made with 💚☕️
             </p>
           </a>
           <div className="flex gap-4">
