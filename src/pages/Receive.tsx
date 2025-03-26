@@ -266,20 +266,11 @@ const Receive = () => {
 
       <footer className="py-6 border-t border-border">
         <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} HandShare. All rights reserved.
-          </p>
-          <div className="flex gap-4">
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Terms
-            </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Privacy
-            </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Contact
-            </a>
-          </div>
+          <a href='https://enzovezzaro.com' target='_blank'>
+            <p className="text-sm text-muted-foreground">
+              &copy; {new Date().getFullYear()} Enzo Vezzaro 👨🏽‍💻 Made with 💚☕️
+            </p>
+          </a>
         </div>
       </footer>
     </div>

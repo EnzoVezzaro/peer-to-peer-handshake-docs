@@ -334,17 +334,6 @@ const Index = () => {
               &copy; {new Date().getFullYear()} Enzo Vezzaro 👨🏽‍💻 Made with 💚☕️
             </p>
           </a>
-          <div className="flex gap-4">
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Terms
-            </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Privacy
-            </a>
-            <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Contact
-            </a>
-          </div>
         </div>
       </footer>
     </div>
