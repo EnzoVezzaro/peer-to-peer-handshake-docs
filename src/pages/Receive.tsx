@@ -53,6 +53,7 @@ const Receive = () => {
         setConnectionState(state as ConnectionState);
         if (state === 'connected') {
           setPeerConnected(true);
+          setConnectionState('waiting');
         } else {
           setPeerConnected(false);
           if (state === 'failed' || state === 'closed' || state === 'disconnected') {
